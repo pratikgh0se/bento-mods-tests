@@ -1,0 +1,418 @@
+Warning: claude.ai MCP servers blocked by enterprise policy: claude.ai Claude Docs, claude.ai draw.io, claude.ai Cloudflare Developer Platform, claude.ai Mail
+## Context Usage
+
+**Model:** claude-haiku-5-5  
+**Tokens:** 28.7k / 200k (14%)
+
+### Estimated usage by category
+
+| Category | Tokens | Percentage |
+|----------|--------|------------|
+| System prompt | 3.3k | 1.7% |
+| System tools | 11.2k | 5.6% |
+| MCP server instructions | 513 | 0.3% |
+| MCP tools (deferred) | 67k | 33.5% |
+| System tools (deferred) | 22.5k | 11.3% |
+| Custom agents | 521 | 0.3% |
+| Memory files | 1.8k | 0.9% |
+| Skills | 9.9k | 5.0% |
+| Messages | 1.5k | 0.7% |
+| Free space | 138.3k | 69.1% |
+| Autocompact buffer | 33k | 16.5% |
+
+### MCP Tools
+
+| Tool | Server | Tokens |
+|------|--------|--------|
+| mcp__agents__step | agents | 167 |
+| mcp__awareness__phase | awareness | 156 |
+| mcp__claude_ai_Context7__query-docs | claude_ai_Context7 | 799 |
+| mcp__claude_ai_Context7__resolve-library-id | claude_ai_Context7 | 1.1k |
+| mcp__notes-vault__notes_backlinks | notes-vault | 173 |
+| mcp__notes-vault__notes_capture | notes-vault | 255 |
+| mcp__notes-vault__notes_get_skill | notes-vault | 199 |
+| mcp__notes-vault__notes_list_skills | notes-vault | 176 |
+| mcp__notes-vault__notes_move_note | notes-vault | 205 |
+| mcp__notes-vault__notes_read_note | notes-vault | 213 |
+| mcp__notes-vault__notes_replace_text | notes-vault | 214 |
+| mcp__notes-vault__notes_save_note | notes-vault | 500 |
+| mcp__notes-vault__notes_search | notes-vault | 361 |
+| mcp__notes-vault__notes_update_note | notes-vault | 529 |
+| mcp__notes-vault__notes_validate_note | notes-vault | 219 |
+| mcp__notes-vault__notes_vault_health | notes-vault | 177 |
+| mcp__plugin_design_slack__slack_add_list_record | plugin_design_slack | 927 |
+| mcp__plugin_design_slack__slack_add_reaction | plugin_design_slack | 258 |
+| mcp__plugin_design_slack__slack_complete_file_upload | plugin_design_slack | 978 |
+| mcp__plugin_design_slack__slack_create_canvas | plugin_design_slack | 3.4k |
+| mcp__plugin_design_slack__slack_create_conversation | plugin_design_slack | 734 |
+| mcp__plugin_design_slack__slack_create_list | plugin_design_slack | 1.3k |
+| mcp__plugin_design_slack__slack_get_file_upload_url | plugin_design_slack | 674 |
+| mcp__plugin_design_slack__slack_get_reactions | plugin_design_slack | 355 |
+| mcp__plugin_design_slack__slack_list_channel_members | plugin_design_slack | 631 |
+| mcp__plugin_design_slack__slack_list_user_channels | plugin_design_slack | 1.1k |
+| mcp__plugin_design_slack__slack_read_canvas | plugin_design_slack | 299 |
+| mcp__plugin_design_slack__slack_read_channel | plugin_design_slack | 507 |
+| mcp__plugin_design_slack__slack_read_file | plugin_design_slack | 588 |
+| mcp__plugin_design_slack__slack_read_list | plugin_design_slack | 1.7k |
+| mcp__plugin_design_slack__slack_read_thread | plugin_design_slack | 582 |
+| mcp__plugin_design_slack__slack_read_user_profile | plugin_design_slack | 310 |
+| mcp__plugin_design_slack__slack_schedule_message | plugin_design_slack | 474 |
+| mcp__plugin_design_slack__slack_search_channels | plugin_design_slack | 1k |
+| mcp__plugin_design_slack__slack_search_emojis | plugin_design_slack | 344 |
+| mcp__plugin_design_slack__slack_search_public | plugin_design_slack | 1.9k |
+| mcp__plugin_design_slack__slack_search_public_and_private | plugin_design_slack | 2k |
+| mcp__plugin_design_slack__slack_search_users | plugin_design_slack | 889 |
+| mcp__plugin_design_slack__slack_send_message | plugin_design_slack | 793 |
+| mcp__plugin_design_slack__slack_send_message_draft | plugin_design_slack | 918 |
+| mcp__plugin_design_slack__slack_update_canvas | plugin_design_slack | 4.4k |
+| mcp__plugin_design_slack__slack_update_list | plugin_design_slack | 1.6k |
+| mcp__plugin_design_slack__slack_update_list_record | plugin_design_slack | 1.2k |
+| mcp__plugin_desktop-commander_desktop-commander__create_directory | plugin_desktop-commander_desktop-commander | 395 |
+| mcp__plugin_desktop-commander_desktop-commander__edit_block | plugin_desktop-commander_desktop-commander | 1.6k |
+| mcp__plugin_desktop-commander_desktop-commander__force_terminate | plugin_desktop-commander_desktop-commander | 188 |
+| mcp__plugin_desktop-commander_desktop-commander__get_config | plugin_desktop-commander_desktop-commander | 501 |
+| mcp__plugin_desktop-commander_desktop-commander__get_file_info | plugin_desktop-commander_desktop-commander | 552 |
+| mcp__plugin_desktop-commander_desktop-commander__get_more_search_results | plugin_desktop-commander_desktop-commander | 714 |
+| mcp__plugin_desktop-commander_desktop-commander__get_recent_tool_calls | plugin_desktop-commander_desktop-commander | 523 |
+| mcp__plugin_desktop-commander_desktop-commander__get_usage_stats | plugin_desktop-commander_desktop-commander | 224 |
+| mcp__plugin_desktop-commander_desktop-commander__give_feedback_to_desktop_commander | plugin_desktop-commander_desktop-commander | 413 |
+| mcp__plugin_desktop-commander_desktop-commander__interact_with_process | plugin_desktop-commander_desktop-commander | 950 |
+| mcp__plugin_desktop-commander_desktop-commander__kill_process | plugin_desktop-commander_desktop-commander | 214 |
+| mcp__plugin_desktop-commander_desktop-commander__list_directory | plugin_desktop-commander_desktop-commander | 1k |
+| mcp__plugin_desktop-commander_desktop-commander__list_processes | plugin_desktop-commander_desktop-commander | 219 |
+| mcp__plugin_desktop-commander_desktop-commander__list_searches | plugin_desktop-commander_desktop-commander | 265 |
+| mcp__plugin_desktop-commander_desktop-commander__list_sessions | plugin_desktop-commander_desktop-commander | 403 |
+| mcp__plugin_desktop-commander_desktop-commander__move_file | plugin_desktop-commander_desktop-commander | 421 |
+| mcp__plugin_desktop-commander_desktop-commander__read_file | plugin_desktop-commander_desktop-commander | 1.8k |
+| mcp__plugin_desktop-commander_desktop-commander__read_multiple_files | plugin_desktop-commander_desktop-commander | 517 |
+| mcp__plugin_desktop-commander_desktop-commander__read_process_output | plugin_desktop-commander_desktop-commander | 1k |
+| mcp__plugin_desktop-commander_desktop-commander__set_config_value | plugin_desktop-commander_desktop-commander | 626 |
+| mcp__plugin_desktop-commander_desktop-commander__start_process | plugin_desktop-commander_desktop-commander | 1.4k |
+| mcp__plugin_desktop-commander_desktop-commander__start_search | plugin_desktop-commander_desktop-commander | 1.9k |
+| mcp__plugin_desktop-commander_desktop-commander__stop_search | plugin_desktop-commander_desktop-commander | 362 |
+| mcp__plugin_desktop-commander_desktop-commander__write_file | plugin_desktop-commander_desktop-commander | 835 |
+| mcp__plugin_desktop-commander_desktop-commander__write_pdf | plugin_desktop-commander_desktop-commander | 1.6k |
+| mcp__video-service__video_add_playlist_item | video-service | 164 |
+| mcp__video-service__video_approve_creator_content | video-service | 130 |
+| mcp__video-service__video_approve_moderation | video-service | 125 |
+| mcp__video-service__video_approve_playlist | video-service | 123 |
+| mcp__video-service__video_approve_upload | video-service | 122 |
+| mcp__video-service__video_auth_status | video-service | 83 |
+| mcp__video-service__video_cancel_upload | video-service | 140 |
+| mcp__video-service__video_consumption_profile | video-service | 151 |
+| mcp__video-service__video_consumption_trends | video-service | 236 |
+| mcp__video-service__video_create_comment | video-service | 142 |
+| mcp__video-service__video_create_playlist | video-service | 190 |
+| mcp__video-service__video_creator_overview | video-service | 150 |
+| mcp__video-service__video_creator_retention | video-service | 110 |
+| mcp__video-service__video_creator_top_videos | video-service | 167 |
+| mcp__video-service__video_delete_caption | video-service | 160 |
+| mcp__video-service__video_delete_comment | video-service | 145 |
+| mcp__video-service__video_delete_playlist | video-service | 139 |
+| mcp__video-service__video_download_caption | video-service | 214 |
+| mcp__video-service__video_find_comment_reply | video-service | 150 |
+| mcp__video-service__video_get_channel | video-service | 103 |
+| mcp__video-service__video_get_comments | video-service | 130 |
+| mcp__video-service__video_get_moderation_comment | video-service | 122 |
+| mcp__video-service__video_get_owned_video | video-service | 110 |
+| mcp__video-service__video_get_playlist | video-service | 113 |
+| mcp__video-service__video_get_transcript | video-service | 108 |
+| mcp__video-service__video_get_upload_status | video-service | 116 |
+| mcp__video-service__video_get_video | video-service | 100 |
+| mcp__video-service__video_import_takeout | video-service | 128 |
+| mcp__video-service__video_list_caption_tracks | video-service | 110 |
+| mcp__video-service__video_list_channel_comment_threads | video-service | 125 |
+| mcp__video-service__video_list_moderation_comments | video-service | 167 |
+| mcp__video-service__video_list_owned_videos | video-service | 125 |
+| mcp__video-service__video_list_playlist_items | video-service | 150 |
+| mcp__video-service__video_list_playlists | video-service | 125 |
+| mcp__video-service__video_list_subscriptions | video-service | 108 |
+| mcp__video-service__video_list_video_categories | video-service | 128 |
+| mcp__video-service__video_my_account | video-service | 79 |
+| mcp__video-service__video_preflight_add_playlist_item | video-service | 137 |
+| mcp__video-service__video_preflight_cancel_upload | video-service | 114 |
+| mcp__video-service__video_preflight_caption_delete | video-service | 133 |
+| mcp__video-service__video_preflight_caption_download | video-service | 188 |
+| mcp__video-service__video_preflight_caption_update | video-service | 262 |
+| mcp__video-service__video_preflight_caption_upload | video-service | 245 |
+| mcp__video-service__video_preflight_create_playlist | video-service | 174 |
+| mcp__video-service__video_preflight_delete_comment | video-service | 120 |
+| mcp__video-service__video_preflight_delete_playlist | video-service | 114 |
+| mcp__video-service__video_preflight_remove_playlist_item | video-service | 145 |
+| mcp__video-service__video_preflight_reorder_playlist_item | video-service | 176 |
+| mcp__video-service__video_preflight_reply_to_comment | video-service | 147 |
+| mcp__video-service__video_preflight_resume_upload | video-service | 347 |
+| mcp__video-service__video_preflight_set_comment_moderation_status | video-service | 196 |
+| mcp__video-service__video_preflight_set_thumbnail | video-service | 160 |
+| mcp__video-service__video_preflight_update_metadata | video-service | 452 |
+| mcp__video-service__video_preflight_update_playlist | video-service | 184 |
+| mcp__video-service__video_preflight_upload | video-service | 321 |
+| mcp__video-service__video_propose_consumption_queue | video-service | 125 |
+| mcp__video-service__video_rate_video | video-service | 143 |
+| mcp__video-service__video_remove_playlist_item | video-service | 170 |
+| mcp__video-service__video_reorder_playlist_item | video-service | 201 |
+| mcp__video-service__video_reply_to_comment | video-service | 171 |
+| mcp__video-service__video_reset_consumption_data | video-service | 106 |
+| mcp__video-service__video_resume_upload | video-service | 378 |
+| mcp__video-service__video_save_curation_candidate | video-service | 376 |
+| mcp__video-service__video_save_curation_policy | video-service | 165 |
+| mcp__video-service__video_search | video-service | 119 |
+| mcp__video-service__video_set_comment_moderation_status | video-service | 225 |
+| mcp__video-service__video_set_thumbnail | video-service | 190 |
+| mcp__video-service__video_subscribe | video-service | 120 |
+| mcp__video-service__video_unsubscribe | video-service | 123 |
+| mcp__video-service__video_update_caption | video-service | 290 |
+| mcp__video-service__video_update_metadata | video-service | 503 |
+| mcp__video-service__video_update_playlist | video-service | 208 |
+| mcp__video-service__video_upload_caption | video-service | 278 |
+| mcp__video-service__video_upload_video | video-service | 364 |
+
+### Custom Agents
+
+| Agent Type | Source | Tokens |
+|------------|--------|--------|
+| team-flow:agent-careful | Plugin | 118 |
+| team-flow:agent-fable | Plugin | 101 |
+| team-flow:agent-heavy | Plugin | 108 |
+| team-flow:agent-light | Plugin | 99 |
+| team-flow:agent-medium | Plugin | 95 |
+
+### Memory Files
+
+| Type | Path | Tokens |
+|------|------|--------|
+| User | /Users/alice/.claude/CLAUDE.md | 1.8k |
+
+### Skills
+
+| Skill | Source | Tokens |
+|-------|--------|--------|
+| academy-guide | User | ~340 |
+| user-skill-001 | User | ~90 |
+| user-skill-003 | User | ~120 |
+| user-skill-004 | User | ~110 |
+| user-skill-005 | User | ~90 |
+| user-skill-006 | User | ~190 |
+| caveman | User | ~140 |
+| user-skill-007 | User | ~80 |
+| user-skill-008 | User | ~360 |
+| user-skill-010 | User | ~90 |
+| user-skill-011 | User | ~90 |
+| user-skill-013 | User | ~70 |
+| user-skill-014 | User | ~90 |
+| user-skill-015 | User | ~80 |
+| user-skill-017 | User | ~340 |
+| user-skill-019 | User | ~150 |
+| user-skill-020 | User | ~80 |
+| user-skill-021 | User | ~280 |
+| user-skill-023 | User | ~120 |
+| user-skill-025 | User | ~110 |
+| user-skill-027 | User | ~70 |
+| user-skill-028 | User | ~110 |
+| user-skill-030 | User | ~130 |
+| user-skill-031 | User | ~110 |
+| user-skill-033 | User | ~120 |
+| user-skill-034 | User | ~200 |
+| user-skill-035 | User | ~80 |
+| user-skill-036 | User | ~120 |
+| user-skill-037 | User | ~170 |
+| user-skill-038 | User | ~60 |
+| user-skill-039 | User | ~80 |
+| user-skill-040 | User | ~60 |
+| user-skill-041 | User | ~100 |
+| user-skill-043 | User | ~60 |
+| user-skill-044 | User | ~60 |
+| user-skill-045 | User | ~120 |
+| user-skill-046 | User | ~80 |
+| user-skill-047 | User | ~150 |
+| user-skill-048 | User | ~110 |
+| user-skill-049 | User | ~90 |
+| user-skill-050 | User | < 20 |
+| user-skill-051 | User | ~140 |
+| user-skill-054 | User | < 20 |
+| user-skill-058 | User | < 20 |
+| user-skill-060 | User | ~110 |
+| user-skill-062 | User | < 20 |
+| user-skill-063 | User | < 20 |
+| user-skill-064 | User | < 20 |
+| user-skill-065 | User | < 20 |
+| user-skill-066 | User | < 20 |
+| user-skill-067 | User | < 20 |
+| user-skill-068 | User | < 20 |
+| user-skill-070 | User | < 20 |
+| user-skill-072 | User | < 20 |
+| user-skill-073 | User | < 20 |
+| user-skill-076 | User | < 20 |
+| user-skill-080 | User | < 20 |
+| user-skill-081 | User | < 20 |
+| user-skill-082 | User | < 20 |
+| user-skill-087 | User | < 20 |
+| user-skill-088 | User | ~40 |
+| user-skill-089 | User | < 20 |
+| user-skill-090 | User | < 20 |
+| user-skill-091 | User | ~70 |
+| user-skill-092 | User | ~30 |
+| user-skill-093 | User | < 20 |
+| user-skill-094 | User | < 20 |
+| user-skill-095 | User | < 20 |
+| user-skill-096 | User | < 20 |
+| user-skill-097 | User | ~80 |
+| user-skill-098 | User | < 20 |
+| user-skill-099 | User | < 20 |
+| user-skill-100 | User | ~40 |
+| user-skill-101 | User | < 20 |
+| user-skill-102 | User | < 20 |
+| user-skill-103 | User | < 20 |
+| user-skill-104 | User | < 20 |
+| user-skill-105 | User | ~30 |
+| user-skill-106 | User | < 20 |
+| user-skill-107 | User | < 20 |
+| user-skill-108 | User | ~70 |
+| user-skill-109 | User | < 20 |
+| user-skill-110 | User | < 20 |
+| user-skill-111 | User | ~30 |
+| user-skill-112 | User | < 20 |
+| user-skill-113 | User | < 20 |
+| user-skill-114 | User | < 20 |
+| user-skill-115 | User | < 20 |
+| user-skill-116 | User | < 20 |
+| user-skill-117 | User | ~30 |
+| user-skill-118 | User | < 20 |
+| user-skill-119 | User | < 20 |
+| user-skill-120 | User | < 20 |
+| user-skill-121 | User | < 20 |
+| user-skill-122 | User | < 20 |
+| user-skill-123 | User | < 20 |
+| user-skill-124 | User | ~30 |
+| user-skill-125 | User | < 20 |
+| user-skill-126 | User | < 20 |
+| user-skill-127 | User | < 20 |
+| user-skill-056 | User | < 20 |
+| user-skill-128 | User | < 20 |
+| user-skill-129 | User | < 20 |
+| user-skill-130 | User | < 20 |
+| user-skill-131 | User | < 20 |
+| user-skill-132 | User | < 20 |
+| slack-by-salesforce:channel-digest | Plugin (slack-by-salesforce) | < 20 |
+| slack-by-salesforce:draft-announcement | Plugin (slack-by-salesforce) | < 20 |
+| slack-by-salesforce:find-discussions | Plugin (slack-by-salesforce) | < 20 |
+| slack-by-salesforce:standup | Plugin (slack-by-salesforce) | < 20 |
+| slack-by-salesforce:summarize-channel | Plugin (slack-by-salesforce) | < 20 |
+| slack:channel-digest | Plugin (slack) | < 20 |
+| slack:draft-announcement | Plugin (slack) | < 20 |
+| slack:find-discussions | Plugin (slack) | < 20 |
+| slack:standup | Plugin (slack) | < 20 |
+| slack:summarize-channel | Plugin (slack) | < 20 |
+| superpowers:brainstorming | Plugin (superpowers) | ~80 |
+| superpowers:diagnosing-superpowers | Plugin (superpowers) | < 20 |
+| superpowers:dispatching-parallel-agents | Plugin (superpowers) | < 20 |
+| superpowers:executing-plans | Plugin (superpowers) | < 20 |
+| superpowers:finishing-a-development-branch | Plugin (superpowers) | ~50 |
+| superpowers:receiving-code-review | Plugin (superpowers) | < 20 |
+| superpowers:requesting-code-review | Plugin (superpowers) | < 20 |
+| superpowers:subagent-driven-development | Plugin (superpowers) | ~40 |
+| superpowers:systematic-debugging | Plugin (superpowers) | ~40 |
+| superpowers:test-driven-development | Plugin (superpowers) | ~40 |
+| superpowers:using-git-worktrees | Plugin (superpowers) | ~80 |
+| superpowers:using-superpowers | Plugin (superpowers) | ~60 |
+| superpowers:verification-before-completion | Plugin (superpowers) | < 20 |
+| superpowers:writing-plans | Plugin (superpowers) | ~40 |
+| superpowers:writing-skills | Plugin (superpowers) | < 20 |
+| mattpocock-skills:diagnosing-bugs | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:tdd | Plugin (mattpocock-skills) | ~60 |
+| mattpocock-skills:prototype | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:research | Plugin (mattpocock-skills) | ~90 |
+| mattpocock-skills:domain-modeling | Plugin (mattpocock-skills) | ~60 |
+| mattpocock-skills:codebase-design | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:code-review | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:resolving-merge-conflicts | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:wizard | Plugin (mattpocock-skills) | < 20 |
+| mattpocock-skills:grilling | Plugin (mattpocock-skills) | ~60 |
+| mattpocock-skills:writing-for-agents | Plugin (mattpocock-skills) | < 20 |
+| design:accessibility-review | Plugin (design) | < 20 |
+| design:design-critique | Plugin (design) | < 20 |
+| design:design-handoff | Plugin (design) | < 20 |
+| design:design-system | Plugin (design) | < 20 |
+| design:research-synthesis | Plugin (design) | < 20 |
+| design:user-research | Plugin (design) | < 20 |
+| design:ux-copy | Plugin (design) | < 20 |
+| desktop-commander:ai-tools-setup | Plugin (desktop-commander) | < 20 |
+| desktop-commander:computer-health-check | Plugin (desktop-commander) | < 20 |
+| desktop-commander:desktop-commander-overview | Plugin (desktop-commander) | < 20 |
+| desktop-commander:knowledge-base | Plugin (desktop-commander) | < 20 |
+| desktop-commander:notes-vault | Plugin (desktop-commander) | < 20 |
+| desktop-commander:terminal | Plugin (desktop-commander) | < 20 |
+| engineering:architecture | Plugin (engineering) | < 20 |
+| engineering:code-review | Plugin (engineering) | < 20 |
+| engineering:debug | Plugin (engineering) | < 20 |
+| engineering:deploy-checklist | Plugin (engineering) | < 20 |
+| engineering:documentation | Plugin (engineering) | < 20 |
+| engineering:incident-response | Plugin (engineering) | < 20 |
+| engineering:standup | Plugin (engineering) | < 20 |
+| engineering:system-design | Plugin (engineering) | < 20 |
+| engineering:tech-debt | Plugin (engineering) | < 20 |
+| engineering:testing-strategy | Plugin (engineering) | < 20 |
+| productivity:memory-management | Plugin (productivity) | < 20 |
+| productivity:start | Plugin (productivity) | < 20 |
+| productivity:task-management | Plugin (productivity) | < 20 |
+| productivity:update | Plugin (productivity) | < 20 |
+| cowork-plugin-management:cowork-plugin-customizer | Plugin (cowork-plugin-management) | < 20 |
+| cowork-plugin-management:create-cowork-plugin | Plugin (cowork-plugin-management) | < 20 |
+| figma:figma-code-connect | Plugin (figma) | < 20 |
+| figma:figma-code-workflows | Plugin (figma) | < 20 |
+| figma:figma-create-new-file | Plugin (figma) | < 20 |
+| figma:figma-design-to-code | Plugin (figma) | < 20 |
+| figma:figma-generate-design | Plugin (figma) | < 20 |
+| figma:figma-generate-diagram | Plugin (figma) | < 20 |
+| figma:figma-generate-library | Plugin (figma) | < 20 |
+| figma:figma-generative-plugins | Plugin (figma) | < 20 |
+| figma:figma-implement-motion | Plugin (figma) | < 20 |
+| figma:figma-shaders | Plugin (figma) | < 20 |
+| figma:figma-spec | Plugin (figma) | < 20 |
+| figma:figma-swiftui | Plugin (figma) | < 20 |
+| figma:figma-use | Plugin (figma) | < 20 |
+| figma:figma-use-figjam | Plugin (figma) | < 20 |
+| figma:figma-use-motion | Plugin (figma) | < 20 |
+| figma:figma-use-slides | Plugin (figma) | < 20 |
+| slack-by-salesforce:slack-messaging | Plugin (slack-by-salesforce) | < 20 |
+| slack-by-salesforce:slack-search | Plugin (slack-by-salesforce) | < 20 |
+| scaffold-slack-app:scaffold-slack-app | Plugin (scaffold-slack-app) | < 20 |
+| slack:block-kit | Plugin (slack) | < 20 |
+| slack:create-slack-app | Plugin (slack) | < 20 |
+| slack:deploy-slack-app | Plugin (slack) | < 20 |
+| slack:slack-api | Plugin (slack) | < 20 |
+| slack:slack-cli | Plugin (slack) | < 20 |
+| slack:slack-docs | Plugin (slack) | < 20 |
+| slack:slack-messaging | Plugin (slack) | < 20 |
+| slack:slack-search | Plugin (slack) | < 20 |
+| slack:test-slack-app | Plugin (slack) | < 20 |
+| dataviz | Built-in | ~480 |
+| artifact-design | Built-in | ~70 |
+| artifact-diagramming | Built-in | ~70 |
+| artifact-capabilities | Built-in | ~250 |
+| update-config | Built-in | ~240 |
+| keybindings-help | Built-in | ~80 |
+| code-review | Built-in | ~330 |
+| simplify | Built-in | ~60 |
+| fewer-permission-prompts | Built-in | ~60 |
+| loop | Built-in | ~120 |
+| schedule | Built-in | ~130 |
+| workflow-authoring | Built-in | ~80 |
+| run | Built-in | ~120 |
+| plugin-authoring | Built-in | ~90 |
+| init | Built-in | ~20 |
+| security-review | Built-in | < 20 |
+| built-in-browser | claude.ai sync | < 20 |
+| chrome-browser | claude.ai sync | < 20 |
+| computer-use | claude.ai sync | < 20 |
+| anthropic-skills:deep-research | claude.ai sync | < 20 |
+| docs | claude.ai sync | < 20 |
+| anthropic-skills:docx | claude.ai sync | < 20 |
+| google-workspace | claude.ai sync | < 20 |
+| import-memory | claude.ai sync | < 20 |
+| morning | claude.ai sync | < 20 |
+| anthropic-skills:pdf | claude.ai sync | < 20 |
+| anthropic-skills:pptx | claude.ai sync | < 20 |
+| anthropic-skills:skill-creator | claude.ai sync | < 20 |
+| anthropic-skills:xlsx | claude.ai sync | < 20 |
+
