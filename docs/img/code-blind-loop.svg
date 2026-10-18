@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" width="900" height="560" role="img" aria-label="Code-blind loop: tester and builder work from the same spec in separate lanes; only pass/fail results cross back to the orchestrator; a referee resolves disagreements"><style>
+:root{--bg:#ffffff;--fg:#1f2328;--mut:#59636e;--line:#d1d9e0;--a:#0969da;--abg:#ddf4ff;--b:#1a7f37;--bbg:#dafbe1;--w:#cf222e;--wbg:#ffebe9;--c:#8250df;--cbg:#fbefff}
+@media (prefers-color-scheme: dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#9198a1;--line:#3d444d;--a:#58a6ff;--abg:#121d2f;--b:#3fb950;--bbg:#12261e;--w:#ff7b72;--wbg:#2d1214;--c:#bc8cff;--cbg:#271a3d}}
+text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:var(--fg);font-size:14px}
+.m{fill:var(--mut);font-size:12px}.t{font-weight:600}.h{font-size:18px;font-weight:600}.mid{text-anchor:middle}.end{text-anchor:end}
+</style>
+<rect width="900" height="560" fill="var(--bg)"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--mut)"/></marker></defs>
+<text x="450" y="30" class="h mid">The code-blind loop</text>
+<rect x="300" y="48" width="300" height="78" rx="8" fill="var(--cbg)" stroke="var(--c)" stroke-width="2"/>
+<text x="450" y="74" class="t mid">1. The spec</text>
+<text x="450" y="94" class="m mid">numbered contract statements</text>
+<text x="450" y="112" class="m mid">"given X, the plugin shows Y"</text>
+<path d="M390 126 L225 176" stroke="var(--mut)" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+<path d="M510 126 L675 176" stroke="var(--mut)" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+<rect x="30" y="180" width="360" height="190" rx="8" fill="var(--abg)" stroke="var(--a)" stroke-width="2"/>
+<text x="210" y="206" class="t mid">TESTER LANE</text>
+<text x="210" y="226" class="m mid">this repo: bento-mods-tests</text>
+<text x="210" y="256" class="mid">Reads: the spec only</text>
+<text x="210" y="278" class="mid">Writes: contract tests</text>
+<text x="210" y="308" class="m mid">Never opens the implementation</text>
+<text x="210" y="328" class="m mid">Ambiguity: take the literal reading,</text>
+<text x="210" y="346" class="m mid">log it in SPEC-GAPS.md</text>
+<rect x="510" y="180" width="360" height="190" rx="8" fill="var(--bbg)" stroke="var(--b)" stroke-width="2"/>
+<text x="690" y="206" class="t mid">BUILDER LANE</text>
+<text x="690" y="226" class="m mid">repo: machine-setup</text>
+<text x="690" y="256" class="mid">Reads: the spec only</text>
+<text x="690" y="278" class="mid">Writes: the implementation</text>
+<text x="690" y="308" class="m mid">Never opens the tests</text>
+<text x="690" y="328" class="m mid">Runs them only through the runner,</text>
+<text x="690" y="346" class="m mid">which reports counts and names</text>
+<rect x="418" y="150" width="64" height="244" rx="4" fill="var(--wbg)" stroke="var(--w)" stroke-width="2"/>
+<g stroke="var(--w)" stroke-width="2"><line x1="418" y1="190" x2="482" y2="190"/><line x1="418" y1="230" x2="482" y2="230"/><line x1="418" y1="270" x2="482" y2="270"/><line x1="418" y1="310" x2="482" y2="310"/><line x1="418" y1="350" x2="482" y2="350"/></g>
+<text x="450" y="172" class="t mid" style="fill:var(--w);font-size:12px">THE WALL</text>
+<text x="450" y="412" class="m mid" style="fill:var(--w)">no code or test source crosses</text>
+<path d="M210 370 L210 440 L370 462" stroke="var(--mut)" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+<path d="M690 370 L690 440 L530 462" stroke="var(--mut)" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+<text x="224" y="424" class="m">pass/fail counts +</text><text x="224" y="440" class="m">failing test names</text>
+<text x="676" y="424" class="m end">pass/fail counts +</text><text x="676" y="440" class="m end">failing test names</text>
+<rect x="340" y="452" width="220" height="64" rx="8" fill="var(--cbg)" stroke="var(--c)" stroke-width="2"/>
+<text x="450" y="478" class="t mid">Orchestrator</text>
+<text x="450" y="498" class="m mid">sees results only, never tests</text>
+<path d="M560 484 L640 484" stroke="var(--w)" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#ar)"/>
+<text x="600" y="474" class="m mid" style="fill:var(--w)">disagreement</text>
+<rect x="650" y="452" width="220" height="86" rx="8" fill="var(--wbg)" stroke="var(--w)" stroke-width="2"/>
+<text x="760" y="478" class="t mid">Referee</text>
+<text x="760" y="498" class="m mid">sees both sides, edits nothing</text>
+<text x="760" y="516" class="m mid">writes a separate brief for</text>
+<text x="760" y="532" class="m mid">tester and builder, or fixes the spec</text>
+</svg>
