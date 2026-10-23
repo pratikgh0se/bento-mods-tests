@@ -56,7 +56,9 @@ class Freshness(HookCase):
         t = self.run_and_read(fallback="1")
         i, j, k = t.index(AGENT_H), t.index(BODY.strip()), t.index(FACTS_H)
         self.assertTrue(i < j < k)
-        self.assertFalse(self.shim_invoked())
+        # F38.1 amends AC 5 "shim not invoked when fresh": the summary runs for a fresh agent file too
+        self.assertTrue(self.shim_invoked())
+        self.assertTrue(t.index(AGENT_H) < t.index(SUMMARY_H) < t.index(FACTS_H))
 
     # AC 46: stale cases (6, 8, 9, 10, 11) now yield warning line + agent section (Haiku per fallback setting; "0" -> none)
     def assert_stale(self, t, reason=None):
@@ -66,7 +68,7 @@ class Freshness(HookCase):
         if reason:
             self.assertIn(reason, w)
         self.assertEqual(t.index(w) + len(w) + 1, t.index(AGENT_H))  # bare line directly above the agent heading
-        self.assertNotIn(HAIKU_H, t)  # fallback "0"
+        self.assertNotIn(SUMMARY_H, t)  # fallback "0"
         self.assertFalse(self.shim_invoked())
 
     def assert_fresh(self, t):
@@ -134,11 +136,12 @@ class Fallback(HookCase):
                          extra={"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "123"})
         self.assertEqual(r.returncode, 0)
         t = self.latest()
-        self.assertIn(HAIKU_H, t)
+        self.assertIn(SUMMARY_H, t)
         self.assertIn(text, t)
         args = self.shim_file("args").split("\n")
-        for a in ("-p", "--model", "haiku", "--tools"):
+        for a in ("-p", "--model", "sonnet", "--tools"):  # F38.3: sonnet by default (was haiku)
             self.assertIn(a, args)
+        self.assertNotIn("haiku", args)
         self.assertIn("USER: please do the thing", self.shim_file("stdin"))
         env = self.shim_file("env")
         self.assertIn("HANDOFF_HOOK_CHILD=1", env)
@@ -147,32 +150,32 @@ class Fallback(HookCase):
     def test_ac14_failures(self):
         self.install_shim(rc=3, out="")
         t = self.run_and_read(fallback="1")
-        self.assertIn("Haiku fallback failed: claude exited 3", t)
+        self.assertIn("Fresh summary failed: claude exited 3", t)
         self.assertIn(FACTS_H, t)
 
     def test_ac14_short_output(self):
         self.install_shim(out="short")
         t = self.run_and_read(fallback="1")
-        self.assertIn("Haiku fallback failed: empty or too-short output", t)
+        self.assertIn("Fresh summary failed: empty or too-short output", t)
         self.assertIn(FACTS_H, t)
 
     def test_ac14_no_binary(self):
         t = self.run_and_read(fallback="1")
-        self.assertIn("Haiku fallback failed: claude binary not found", t)
+        self.assertIn("Fresh summary failed: claude binary not found", t)
         self.assertIn(FACTS_H, t)
 
     def test_ac14_no_transcript(self):
         self.install_shim(out="x" * 100)
         t = self.run_and_read(fallback="1", transcript=False)
-        self.assertIn("Haiku fallback failed: no transcript excerpt", t)
+        self.assertIn("Fresh summary failed: no transcript excerpt", t)
         self.assertIn(FACTS_H, t)
         self.assertFalse(self.shim_invoked())
 
-    def test_ac15_haiku_cap_4000(self):
-        self.install_shim(out="Z" * 5000)
+    def test_ac15_summary_cap_6000(self):  # F38.4 amends the 4,000-char Haiku cap
+        self.install_shim(out="Z" * 9000)
         t = self.run_and_read(fallback="1")
         runs = max(len(m) for m in re.findall(r"Z+", t))
-        self.assertTrue(3997 <= runs <= 4000, runs)
+        self.assertTrue(5997 <= runs <= 6000, runs)
 
     def test_ac16_fallback_disabled(self):
         # AC 46: amended to the stale-lead layout of AC 35 (warning + agent section, no Haiku, Facts present)
@@ -182,7 +185,7 @@ class Fallback(HookCase):
         self.assertFalse(self.shim_invoked())
         self.assertIsNotNone(warn_line(t))
         self.assertIn(AGENT_H, t)
-        for s in (HAIKU_H, "Haiku fallback failed"):
+        for s in (SUMMARY_H, "Fresh summary failed"):
             self.assertNotIn(s, t)
         self.assertIn(FACTS_H, t)
 
@@ -191,8 +194,8 @@ class Fallback(HookCase):
         t = self.run_and_read(fallback="0")
         self.assertFalse(self.shim_invoked())
         self.assertNotIn(AGENT_H, t)
-        self.assertNotIn(HAIKU_H, t)
-        self.assertNotIn("Haiku fallback failed", t)
+        self.assertNotIn(SUMMARY_H, t)
+        self.assertNotIn("Fresh summary failed", t)
 
     def test_ac16_other_values_enable(self):
         for v in ("1", ""):
@@ -202,11 +205,12 @@ class Fallback(HookCase):
             self.run_and_read(fallback=v)
             self.assertTrue(self.shim_invoked(), repr(v))
 
-    def test_ac17_fresh_skips_haiku(self):
+    def test_ac17_fresh_still_runs_summary(self):  # F38.1 amends AC 17 "Haiku not invoked when fresh"
         self.install_shim(out="x" * 100)
         self.agent_file(body_n(400), meta=FRESH_META)
-        self.run_and_read(fallback="1")
-        self.assertFalse(self.shim_invoked())
+        t = self.run_and_read(fallback="1")
+        self.assertTrue(self.shim_invoked())
+        self.assertIn(SUMMARY_H, t)
 
 
 def body_n(n):

@@ -9,7 +9,9 @@ CAP = 20000  # F37.1 (was 9500)
 OLD_CAP = 9500
 FOOTER_FMT = "Full transcript: {p}. Read it for exact details before guessing."
 AGENT_H = "## Agent handoff (written by the working agent)"
-HAIKU_H = "## Model-written handoff (Haiku fallback; verify against facts)"
+HAIKU_H = "## Model-written handoff (Haiku fallback; verify against facts)"  # F38: never emitted any more (used in NotIn asserts)
+SUMMARY_H = "## Fresh summary at compaction (sonnet; verify against facts)"  # F38.4 with the default model
+SUMMARY_FAIL = "Fresh summary failed: "
 FACTS_H = "## Facts (auto-extracted)"
 WARN_PFX = "Agent handoff may be stale: "
 # F35.D final order of the nine facts sections (NINE); SECTIONS keeps the six pre-F35 ones in their unchanged relative order.
@@ -38,8 +40,10 @@ SHIM = """#!/bin/sh
 D="$(dirname "$0")"
 echo invoked >> "$D/invoked"
 printf '%s\\n' "$@" > "$D/args"
+printf '%s\\0' "$@" > "$D/argv0"
 env > "$D/env"
 cat > "$D/stdin"
+if [ -f "$D/sleepx" ]; then exec sleep "$(cat "$D/sleepx")"; fi
 if [ -f "$D/sleep" ]; then sleep "$(cat "$D/sleep")"; fi
 if [ -f "$D/out" ]; then cat "$D/out"; fi
 if [ -f "$D/rc" ]; then exit "$(cat "$D/rc")"; fi
@@ -86,6 +90,13 @@ class HookCase(unittest.TestCase):
 
     def shim_file(self, n):
         return open(os.path.join(self.shimdir, n)).read()
+
+    def shim_argv(self):
+        """Exact argv the shim received (excluding argv[0]); empty-string elements preserved (NUL-separated record)."""
+        raw = open(os.path.join(self.shimdir, "argv0"), "rb").read().decode()
+        parts = raw.split("\0")
+        assert parts[-1] == "", parts[-1]
+        return parts[:-1]
 
     # --- running ---
     def env(self, fallback="0", extra=None):

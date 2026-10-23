@@ -6,8 +6,8 @@ from helpers import *
 import test_f35 as f35
 from test_content import git
 
-KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "duration_ms", "output_chars",
-        "truncated", "errors", "status", "hook_version", "canary_child"]
+KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "summary_model", "duration_ms",
+        "output_chars", "truncated", "errors", "status", "hook_version", "canary_child"]
 # F37.4 adds `inline_cut` (bool); its position is not specified: tests require KEYS in order plus inline_cut anywhere.
 KEYS37 = set(KEYS) | {"inline_cut"}
 
@@ -159,18 +159,20 @@ class HealthLog(F36):
         return h
 
     def test_ac51_fresh(self):
-        h = self.row(self.fresh_agent, expect={"agent_file": "fresh", "fallback": "skipped", "status": "ok",
-                                               "errors": [], "stale_sections": []})
+        # F38.6: `skipped` is no longer produced; the default helper run has the summary disabled
+        h = self.row(self.fresh_agent, expect={"agent_file": "fresh", "fallback": "disabled", "summary_model": "",
+                                               "status": "ok", "errors": [], "stale_sections": []})
         s = self.sidecar()
         self.assertEqual((s["reasons"], s["degraded"]), ([], False))
 
-    def test_ac51_fresh_with_fallback_enabled_skips_haiku(self):
+    def test_ac51_fresh_with_fallback_enabled_runs_summary(self):  # F38.1/F38.6 amend "skipped"
         self.install_shim(out="H" * 100)
         self.fresh_agent()
         self.run_ok(fallback="1")
         h = self.health()
-        self.assertEqual((h["agent_file"], h["fallback"], h["status"]), ("fresh", "skipped", "ok"))
-        self.assertFalse(self.shim_invoked())
+        self.assertEqual((h["agent_file"], h["fallback"], h["status"]), ("fresh", "ok", "ok"))
+        self.assertEqual(h["summary_model"], "sonnet")
+        self.assertTrue(self.shim_invoked())
 
     def test_ac51_stale_disabled_with_sections(self):
         self.row(lambda: self.put_agent(BODY400, meta=STALE_META),
@@ -380,7 +382,7 @@ class FailSafe(F36):
         self.full_world()
         base = self.full_run()
         self.assertEqual(heads9(base), NINE, "fixture must contain all nine facts sections")
-        for h in (AGENT_H, HAIKU_H):
+        for h in (AGENT_H, SUMMARY_H):
             self.assertIn(h, base)
         self.assertIsNotNone(warn_line(base))
         footer = FOOTER_FMT.format(p=self.tpath)
@@ -405,7 +407,7 @@ class FailSafe(F36):
                     self.assertNotIn(AGENT_H, t)
                     self.assertLess(li, t.index(FACTS_H))
                 elif name == "fallback":
-                    self.assertNotIn(HAIKU_H, t)
+                    self.assertNotIn(SUMMARY_H, t)
                     self.assertNotIn("HAIKU-TEXT", t)
                     self.assertGreater(li, t.index(AGENT_H))
                     self.assertLess(li, t.index(FACTS_H))
@@ -422,7 +424,7 @@ class FailSafe(F36):
                 if name != "agent":
                     others.append(AGENT_H)
                 if name not in ("fallback", "agent"):
-                    others.append(HAIKU_H)
+                    others.append(SUMMARY_H)
                 for h in others:
                     a = (f35.section(base, h) or "").replace(footer, "").strip()
                     b = (f35.section(t, h) or "").replace(line, "").replace(footer, "").strip()

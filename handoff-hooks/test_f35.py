@@ -1,6 +1,7 @@
 """F35 handoff quality: ACs 31-48 of specs/handoff-hooks-spec.md "F35 additions" (fixtures per "F35 transcript shapes").
 The hook scripts under test are located by HANDOFF_HOOKS_DIR (see helpers.py). Haiku fallback is disabled
-(HANDOFF_HAIKU_FALLBACK=0, the helpers default) unless a test passes fallback="1" together with a `claude` shim."""
+(HANDOFF_HAIKU_FALLBACK=0, the helpers default) unless a test passes fallback="1" together with a `claude` shim.
+F38 amendments: the Haiku section/line/argv/skip-when-fresh ACs are now the F38 fresh summary (SUMMARY_H, "Fresh summary failed")."""
 import calendar, hashlib, json, os, re, time, unittest
 from helpers import *
 
@@ -161,7 +162,7 @@ class Staleness(F35):
         self.write_transcript([user("hello"), asst("ok")])
         t = self.run_and_read(fallback="1")
         w = WARN_PFX + "In progress, Exact next step unchanged since " + NUDGE_T
-        pos = [t.index(x) for x in (w, AGENT_H, self.body400.strip(), HAIKU_H, "HAIKU-TEXT", FACTS_H)]
+        pos = [t.index(x) for x in (w, AGENT_H, self.body400.strip(), SUMMARY_H, "HAIKU-TEXT", FACTS_H)]
         self.assertEqual(pos, sorted(pos))
         self.assertEqual(len(set(pos)), 6)
         self.assertEqual(warn_line(t), w)
@@ -174,7 +175,7 @@ class Staleness(F35):
         self.write_transcript([user("hello"), asst("ok")])
         t = self.run_and_read(fallback="1")
         self.assertIn("not updated since the last nudge", warn_line(t))
-        self.assertTrue(t.index(AGENT_H) < t.index(HAIKU_H) < t.index(FACTS_H))
+        self.assertTrue(t.index(AGENT_H) < t.index(SUMMARY_H) < t.index(FACTS_H))
         self.assertEqual(self.invocations(), 1)
 
     def test_ac34_twenty_minute_old_file_is_fresh(self):
@@ -184,8 +185,9 @@ class Staleness(F35):
         t = self.run_and_read(fallback="1")
         self.assertIsNone(warn_line(t))
         self.assertIn(AGENT_H, t)
-        self.assertNotIn(HAIKU_H, t)
-        self.assertFalse(self.shim_invoked())
+        # F38.1 amends F35.B "Haiku NOT invoked when fresh": the summary runs for a fresh agent file too
+        self.assertTrue(t.index(AGENT_H) < t.index(SUMMARY_H) < t.index(FACTS_H))
+        self.assertTrue(self.shim_invoked())
 
     def test_ac35_stale_with_fallback_disabled(self):
         self.install_shim(out="HAIKU-TEXT " + "h" * 80)
@@ -194,8 +196,9 @@ class Staleness(F35):
         self.assertIsNotNone(warn_line(t))
         self.assertIn(AGENT_H, t)
         self.assertFalse(self.shim_invoked())
-        self.assertNotIn(HAIKU_H, t)
-        self.assertNotIn("Haiku fallback failed", t)
+        self.assertNotIn(SUMMARY_H, t)
+        self.assertNotIn("Fresh summary failed", t)
+        self.assertNotIn("## Model-written handoff (Haiku fallback", t)
         self.assertIn(FACTS_H, t)
 
     def test_ac35_byte_layout(self):
@@ -205,7 +208,7 @@ class Staleness(F35):
         t = self.run_and_read(fallback="1")
         w = warn_line(t)
         haiku = "HAIKU-TEXT " + "h" * 80
-        want = "%s\n%s\n%s\n\n%s\n%s\n\n%s\n" % (w, AGENT_H, self.body400.strip(), HAIKU_H, haiku, FACTS_H)
+        want = "%s\n%s\n%s\n\n%s\n%s\n\n%s\n" % (w, AGENT_H, self.body400.strip(), SUMMARY_H, haiku, FACTS_H)
         self.assertIn(want, t)
 
     def test_ac36_shim_fails(self):
@@ -214,9 +217,9 @@ class Staleness(F35):
         self.write_transcript([user("hello"), asst("ok")])
         t = self.run_and_read(fallback="1")
         self.assertIsNotNone(warn_line(t))
-        i, j, k = t.index(AGENT_H), t.index("Haiku fallback failed: claude exited 3"), t.index(FACTS_H)
+        i, j, k = t.index(AGENT_H), t.index("Fresh summary failed: claude exited 3"), t.index(FACTS_H)
         self.assertTrue(i < j < k)
-        self.assertNotIn(HAIKU_H, t)
+        self.assertNotIn(SUMMARY_H, t)
 
     def test_ac37_both_reasons_joined(self):
         m = float(int(self.put_agent(self.body400, meta=self._stale_meta(), age_min=1)))
@@ -312,21 +315,22 @@ class Size(F35):
         e.append(asst("A" * 400))
         return e
 
-    def test_ac39_haiku_shortened_first(self):
+    def test_ac39_facts_dropped_before_summary_shortened(self):
+        # F38.5 amends F35.C ("Haiku shortened first"): whole facts sections go first, the summary stays whole
         self.install_shim(out="Y" * 4000)
         self.put_agent("L" * 5000, meta={"agentWrittenAt": 1})
-        # calibrate: facts large enough that agent + 4000 Haiku chars exceed 20,000 but the no-Haiku file fits
+        # calibrate: facts large enough that agent + 4000 summary chars exceed 20,000 but the no-summary file fits
         n, ref = self.fit(lambda n: self._facts_transcript(3 + n), 17500)
         t = self.run_and_read(fallback="1")
         self.assertLessEqual(len(t), CAP)
         self.assertIn("L" * 5000, t)
         self.assertIsNotNone(warn_line(t))
-        self.assertIn(HAIKU_H, t)
+        self.assertIn(SUMMARY_H, t)
         run = max(len(m) for m in re.findall(r"Y+", t))
-        self.assertLess(run, 4000)
-        self.assertGreaterEqual(run, 200 - 3)
-        self.assertTrue(section(t, HAIKU_H).rstrip().endswith("..."))
-        self.assertEqual(heads9(t), heads9(ref))  # no facts section dropped while Haiku could be shortened
+        self.assertEqual(run, 4000)  # not shortened while facts sections could still be dropped
+        self.assertLess(len(heads9(t)), len(heads9(ref)))  # some facts section was dropped instead
+        gone = dropped37(t, heads9(ref))
+        self.assertEqual(gone, [h for h in DROP37 if h in heads9(ref)][:len(gone)])  # F37.2 order
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
     def _tight_cwd(self):
@@ -341,18 +345,23 @@ class Size(F35):
         self.assertGreaterEqual(len(t), 19800)
         return cwd
 
-    def test_ac39_haiku_omitted_when_under_200_chars_would_remain(self):
+    def test_ac39_tight_file_summary_shortened_or_omitted_never_failure_line(self):
+        # F38.5 amends F35.C: facts go first; the summary is then cut (ending `...`, >= 200 chars) or omitted entirely
         self.install_shim(out="Y" * 4000)
         self.put_agent("L" * 5000, meta={"agentWrittenAt": 1})
         cwd = self._tight_cwd()
         t = self.run_and_read(fallback="1", cwd=cwd)
         self.assertLessEqual(len(t), CAP)
-        self.assertNotIn(HAIKU_H, t)
-        self.assertNotIn("Y" * 20, t)
+        sec = section(t, SUMMARY_H)
+        if sec is not None:
+            self.assertTrue(sec.rstrip().endswith("..."))
+            self.assertGreaterEqual(len(sec.rstrip()), 200)
+        else:
+            self.assertNotIn("Y" * 20, t)
         self.assertIn("L" * 5000, t)
         self.assertIsNotNone(warn_line(t))
         self.assertIn(AGENT_H, t)
-        self.assertNotIn("Haiku fallback failed", t)  # the shim succeeded; only the oversize text is omitted
+        self.assertNotIn("Fresh summary failed", t)  # the shim succeeded; only the oversize text is cut
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
     def test_ac39_haiku_failure_line_is_kept_even_when_tight(self):
@@ -361,7 +370,7 @@ class Size(F35):
         cwd = self._tight_cwd()
         t = self.run_and_read(fallback="1", cwd=cwd)
         self.assertLessEqual(len(t), CAP)
-        self.assertIn("Haiku fallback failed: claude exited 3", t)
+        self.assertIn("Fresh summary failed: claude exited 3", t)
         self.assertIn(AGENT_H, t)
 
 
