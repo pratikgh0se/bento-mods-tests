@@ -11,8 +11,9 @@ SYSTEM = ("You write handoff notes for an AI coding agent that will resume this 
 PROMPT = ("The conversation since the last compaction is on stdin. Write the handoff with exactly these headings: "
           "## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. Describe the "
           "state at the END of the conversation, including the user's latest request and any rules they set (what "
-          "needs their approval, what not to touch). Keep it under 5000 chars. Use real paths, commands and ids; "
-          "no secrets.")
+          "needs their approval, what not to touch). Under Done list only work confirmed by a tool result; put "
+          "anything started but unconfirmed under In progress prefixed \"unverified:\". Keep it under 3500 chars. "
+          "Use real paths, commands and ids; no secrets.")  # F39.7 (F38.3 text amended)
 
 
 def expected_argv(model="sonnet"):
@@ -31,6 +32,11 @@ BOUNDARY = {"type": "system", "subtype": "compact_boundary", "content": "Convers
 
 
 class F38(HookCase):
+    # F39.7 amends F38.2/F38.3 (stdin starts with STANDING DECISIONS, new prompt, tool-line outcomes): these tests run
+    # with the ledger ENABLED, because F39.1 ties F39.7 to the ledger switch (see SPEC-GAPS.md F39). No merge output is
+    # configured, so the merge call (separate shim role) yields nothing and the ledger stays empty.
+    LEDGER_ENV = None
+
     def setUp(self):
         super().setUp()
         self.write_transcript([user("please do the thing"), asst("done")])
@@ -279,12 +285,12 @@ class Excerpt(F38):
     def test_ac85_bash_tool_use_line(self):
         e = [user("MSG-A-user"), mixed_asst("MSG-B-text", "Bash", command="echo hello-85 && ls /tmp"), user("MSG-C-user")]
         s = self.stdin_for(e)
-        self.assertIn("\n[tool Bash: echo hello-85 && ls /tmp]\n", s)  # on its own line
+        self.assertIn("\n[tool Bash: echo hello-85 && ls /tmp] -> no result\n", s)  # own line; F39.7 outcome suffix
         self.assertIn("ASSISTANT: MSG-B-text", s)
 
     def test_ac85_tool_only_assistant_message_still_renders_tool_line(self):
         s = self.stdin_for([user("MSG-A-user"), tool("Bash", command="echo only-tool-85"), user("MSG-C-user")])
-        self.assertRegex(s, r"(?m)^(ASSISTANT: )?\[tool Bash: echo only-tool-85\]$")
+        self.assertRegex(s, r"(?m)^(ASSISTANT: )?\[tool Bash: echo only-tool-85\] -> no result$")
 
     def test_ac85_tool_key_input_cut_at_300(self):
         s = self.stdin_for([user("MSG-A-user"), mixed_asst("x", "Bash", command="C" * 1000), user("MSG-C-user")])
@@ -313,7 +319,8 @@ class Excerpt(F38):
         self.assertLessEqual(len(s), 120000)
         self.assertGreater(len(s), 115000)  # whole messages dropped only as needed
         self.assertTrue(s.rstrip("\n").endswith(texts[-1]))
-        first = s.split("\n")[0]
+        self.assertTrue(s.startswith("STANDING DECISIONS (do not contradict"))  # F39.7; 120,000 bound is on the whole stdin
+        first = s.split("CONVERSATION:\n", 1)[1].split("\n")[0]
         self.assertRegex(first, r"^(USER|ASSISTANT): \d{3}x")  # starts at a whole message, with its prefix
         self.assertNotIn("PRE-BOUNDARY-MARK", s)
         self.assertNotIn(texts[0], s)
@@ -419,24 +426,24 @@ class Failures(F38):
 
 # ---------------------------------------------------------------- AC 88
 class Cap(F38):
-    def test_ac88_cut_to_6000_with_ellipsis(self):
+    def test_ac88_cut_to_4000_with_ellipsis(self):
         self.fresh()
         t = self.go(out="X" * 9000)
         body = self.sec(t, SUMMARY_H).rstrip("\n")
-        self.assertEqual(len(body), 6000)
+        self.assertEqual(len(body), 4000)
         self.assertTrue(body.endswith("..."))
-        self.assertEqual(body, "X" * 5997 + "...")
+        self.assertEqual(body, "X" * 3997 + "...")
         self.assertLessEqual(len(t), CAP)
 
-    def test_ac88_exactly_6000_is_kept_whole(self):
+    def test_ac88_exactly_4000_is_kept_whole(self):
         self.fresh()
-        t = self.go(out="Y" * 6000)
-        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "Y" * 6000)
+        t = self.go(out="Y" * 4000)
+        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "Y" * 4000)
 
     def test_ac88_under_cap_kept_whole(self):
         self.fresh()
-        t = self.go(out="Z" * 5000)
-        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "Z" * 5000)
+        t = self.go(out="Z" * 3500)
+        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "Z" * 3500)
 
 
 # ---------------------------------------------------------------- AC 89
@@ -471,7 +478,11 @@ class Layout(F38):
 class OverCap(F38):
     """Calibration knob: the length of a (nonexistent) cwd, which lands in the never-trimmed header. The agent body is
     capped at 5,000 chars, so the agent size cannot be the knob. No git repo is used, hence `## Git` is absent; the
-    'eight non-user facts sections' are then the seven that exist (logged in SPEC-GAPS.md)."""
+    'eight non-user facts sections' are then the seven that exist (logged in SPEC-GAPS.md).
+    F39.6: cap 14,000 and summary cap 4,000, so the fixture is shrunk (agent AGENT chars) and the sweep ranges retuned."""
+    AGENT = 3000
+    HI = 9000
+    LO_USERS, HI_USERS = 5000, 9000
 
     def setUp(self):
         super().setUp()
@@ -487,13 +498,13 @@ class OverCap(F38):
               f35.tres("bg1", "agentId: bgid1", {"agentId": "bgid1", "isAsync": True})]
         e.append(asst("A" * 400))
         self.write_transcript(e)
-        self.install_shim(out="S" * 6000)
+        self.install_shim(out="S" * 4000)
         self.base = self.run_c(0, summary=False)
-        self.non_user = [h for h in DROP37 if h != NINE[0] and h in self.base]
+        self.non_user = [h for h in DROP37 if h != EIGHT[0] and h in self.base]
 
     def run_c(self, c, summary=True):
         shutil.rmtree(self.hd, ignore_errors=True)
-        self.agent_file("L" * 5000, meta={"agentWrittenAt": 1})  # stale agent: never trimmed
+        self.agent_file("L" * self.AGENT, meta={"agentWrittenAt": 1})  # stale agent: never trimmed
         r = self.run_pre(self.payload(cwd="/" + "d" * c if c else self.tmp), fallback=None if summary else "0")
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
         return self.latest()
@@ -506,24 +517,25 @@ class OverCap(F38):
     def check_invariants(self, c, t):
         st = self.state(t)
         self.assertLessEqual(len(t), CAP, c)
-        self.assertIn("L" * 5000, t)  # agent section never trimmed
+        self.assertIn("L" * self.AGENT, t)  # agent section never trimmed
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)), c)
         self.assertIsNotNone(warn_line(t), c)
         self.no_old(t)
         non_user_gone = all(h not in t for h in self.non_user)
-        if st["present"] and st["len"] < 6000:
+        if st["present"] and st["len"] < 4000:
             self.assertTrue(non_user_gone, c)  # summary shortened only after every non-user facts section is dropped
             self.assertTrue(st["ends_dots"], c)
             self.assertGreaterEqual(st["len"], 200 - 3, c)
-        if NINE[0] not in t:
+        if EIGHT[0] not in t:
             self.assertFalse(st["present"], c)  # Last user messages dropped only after the summary is gone
             self.assertTrue(non_user_gone, c)
-        if st["present"] and st["len"] == 6000:
+        if st["present"] and st["len"] == 4000:
             gone = [h for h in DROP37 if h not in t and h in self.base]
             self.assertEqual(gone, [h for h in DROP37 if h in self.base][:len(gone)], c)  # F37.2 order
         return st
 
-    def scan(self, lo=0, hi=10800, step=100):
+    def scan(self, lo=0, hi=None, step=100):
+        hi = hi or self.HI
         seen = {}
         for c in range(lo, hi, step):
             t = self.run_c(c)
@@ -531,52 +543,52 @@ class OverCap(F38):
         return seen
 
     def test_ac90_baseline_has_the_facts_sections_and_full_summary(self):
-        self.assertEqual(len(self.non_user), 7, self.non_user)
-        self.assertIn(NINE[0], self.base)
+        self.assertEqual(len(self.non_user), 6, self.non_user)  # F39.6: no Decisions section; no Git (nonexistent cwd)
+        self.assertIn(EIGHT[0], self.base)
         t = self.run_c(0)
-        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "S" * 6000)
+        self.assertEqual(self.sec(t, SUMMARY_H).rstrip("\n"), "S" * 4000)
         self.assertLessEqual(len(t), CAP)
 
     def test_ac90_facts_dropped_then_summary_shortened_user_messages_kept(self):
         seen = self.scan()
-        hit = [c for c, (t, st) in seen.items() if st["present"] and 200 <= st["len"] < 6000 and st["ends_dots"]]
+        hit = [c for c, (t, st) in seen.items() if st["present"] and 200 <= st["len"] < 4000 and st["ends_dots"]]
         self.assertTrue(hit, "no cwd length produced a shortened summary: %s"
                         % sorted({(st["present"], st["len"] // 1000) for t, st in seen.values()}))
         for c in hit:
             t = seen[c][0]
-            self.assertEqual([h for h in NINE if h in t], [NINE[0]], c)
+            self.assertEqual([h for h in EIGHT if h in t], [EIGHT[0]], c)
             self.assertLessEqual(len(t), CAP)
-        full = [c for c, (t, st) in seen.items() if st["present"] and st["len"] == 6000]
+        full = [c for c, (t, st) in seen.items() if st["present"] and st["len"] == 4000]
         self.assertTrue(full)
         self.assertLess(max(full), min(hit))  # facts went (one by one) BEFORE any summary shortening
         # facts sections really were dropped during the sweep while the summary was still whole
-        self.assertTrue(any(any(h not in t for h in self.non_user) for t, st in seen.values() if st["len"] == 6000))
+        self.assertTrue(any(any(h not in t for h in self.non_user) for t, st in seen.values() if st["len"] == 4000))
 
     def test_ac90_summary_disappears_before_user_messages_are_dropped(self):
         seen = self.scan()
         vanished = [c for c, (t, st) in seen.items() if not st["present"]]
         self.assertTrue(vanished, "summary never vanished within the sweep")
         first = min(vanished)
-        keep = [c for c in vanished if NINE[0] in seen[c][0]]
+        keep = [c for c in vanished if EIGHT[0] in seen[c][0]]
         if not keep:  # window narrower than the sweep step: refine around the first disappearance
             for c in range(max(first - 100, 0), first + 400, 10):
                 t = self.run_c(c)
                 st = self.check_invariants(c, t)
-                if not st["present"] and NINE[0] in t:
+                if not st["present"] and EIGHT[0] in t:
                     keep.append(c)
         self.assertTrue(keep, "summary never vanished while `Last user messages` was kept")
         for c in keep:
             t = self.run_c(c)
             self.assertNotIn("## Fresh summary at compaction", t)
             self.assertNotIn(SUMMARY_FAIL, t)  # removed silently, not reported as a failure
-            self.assertEqual([h for h in NINE if h in t], [NINE[0]])
+            self.assertEqual([h for h in EIGHT if h in t], [EIGHT[0]])
             self.assertLessEqual(len(t), CAP)
             self.assertIn(AGENT_H, t)
 
     def test_ac90_last_user_messages_dropped_only_last(self):
-        seen = self.scan(lo=8500, hi=12000, step=100)
+        seen = self.scan(lo=self.LO_USERS, hi=self.HI_USERS, step=100)
         for c, (t, st) in seen.items():
-            if NINE[0] not in t:
+            if EIGHT[0] not in t:
                 self.assertFalse(st["present"], c)
 
 
@@ -613,7 +625,7 @@ class NeverOld(F38):
         self.assertTrue(t.index(AGENT_H) < t.index(line) < t.index(FACTS_H))
         # other sections intact
         footer = FOOTER_FMT.format(p=self.tpath)
-        for h in [AGENT_H] + NINE + [FACTS_H]:
+        for h in [AGENT_H] + EIGHT + [FACTS_H]:
             a = (self.sec(base, h) or "").replace(footer, "").strip()
             b = (self.sec(t, h) or "").replace(line, "").replace(footer, "").strip()
             self.assertEqual(b, a, h)

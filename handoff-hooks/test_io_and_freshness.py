@@ -171,11 +171,11 @@ class Fallback(HookCase):
         self.assertIn(FACTS_H, t)
         self.assertFalse(self.shim_invoked())
 
-    def test_ac15_summary_cap_6000(self):  # F38.4 amends the 4,000-char Haiku cap
+    def test_ac15_summary_cap_4000(self):  # F39.6 amends F38.4 (6,000): summary text cap is 4,000
         self.install_shim(out="Z" * 9000)
         t = self.run_and_read(fallback="1")
         runs = max(len(m) for m in re.findall(r"Z+", t))
-        self.assertTrue(5997 <= runs <= 6000, runs)
+        self.assertTrue(3997 <= runs <= 4000, runs)
 
     def test_ac16_fallback_disabled(self):
         # AC 46: amended to the stale-lead layout of AC 35 (warning + agent section, no Haiku, Facts present)

@@ -6,7 +6,8 @@ from helpers import *
 import test_f35 as f35
 from test_content import git
 
-KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "summary_model", "duration_ms",
+KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "summary_model", "ledger", "ledger_active",
+        "ledger_superseded", "ledger_restored", "ledger_chars", "duration_ms",
         "output_chars", "truncated", "errors", "status", "hook_version", "canary_child"]
 # F37.4 adds `inline_cut` (bool); its position is not specified: tests require KEYS in order plus inline_cut anywhere.
 KEYS37 = set(KEYS) | {"inline_cut"}
@@ -21,9 +22,10 @@ IP, NS = f35.IP, f35.NS
 STALE_META = {"agentWrittenAt": f35.NUDGE_MS, "lastNudgeAt": f35.NUDGE_MS, "stale_sections": [IP, NS]}
 BODY400 = "AGENTBODY " * 40
 
-SECTION_HEADS = {"user_messages": NINE[0], "decisions": NINE[1], "files": NINE[2], "tasks": NINE[3],
-                 "open_tasks": NINE[4], "background_agents": NINE[5], "git": NINE[6], "bash": NINE[7],
-                 "assistant": NINE[8]}
+# F39.6: the `decisions` facts section is gone (its fault name is no longer exercised; see SPEC-GAPS.md F39).
+SECTION_HEADS = {"user_messages": EIGHT[0], "files": EIGHT[1], "tasks": EIGHT[2],
+                 "open_tasks": EIGHT[3], "background_agents": EIGHT[4], "git": EIGHT[5], "bash": EIGHT[6],
+                 "assistant": EIGHT[7]}
 ALL_SECTIONS = ["agent", "warning", "fallback"] + list(SECTION_HEADS)
 FACT_ORDER = list(SECTION_HEADS)
 REASON_TEXT = {"agent_absent": "no agent handoff", "agent_stale": "agent handoff stale",
@@ -245,7 +247,7 @@ class HealthLog(F36):
         e = [user(("U%02d" % i) + "u" * 300) for i in range(4)]
         e += [tool("Edit", file_path="/f/file%02d.py" % i) for i in range(6)]
         e += [tool("Bash", command="echo c%d" % i) for i in range(3)]
-        e += [tool("TaskCreate", subject=("s%03d" % i) + "s" * 150) for i in range(400)]  # F37: pushes past 20,000
+        e += [tool("TaskCreate", subject=("s%03d" % i) + "s" * 150) for i in range(400)]  # F39.6: pushes past 14,000
         e.append(asst("A" * 400))
         self.write_transcript(e)
         self.run_ok(fallback="1")
@@ -381,7 +383,7 @@ class FailSafe(F36):
     def test_ac56_each_section(self):
         self.full_world()
         base = self.full_run()
-        self.assertEqual(heads9(base), NINE, "fixture must contain all nine facts sections")
+        self.assertEqual(heads9(base), EIGHT, "fixture must contain all eight facts sections")
         for h in (AGENT_H, SUMMARY_H):
             self.assertIn(h, base)
         self.assertIsNotNone(warn_line(base))
@@ -420,7 +422,7 @@ class FailSafe(F36):
                     self.assertGreater(li, t.index(prev))
                     self.assertLess(li, t.index(nxt))
                 # all other sections intact
-                others = [h for h in NINE if SECTION_HEADS.get(name) != h]
+                others = [h for h in EIGHT if SECTION_HEADS.get(name) != h]
                 if name != "agent":
                     others.append(AGENT_H)
                 if name not in ("fallback", "agent"):
@@ -446,8 +448,8 @@ class FailSafe(F36):
         self.assertIn("(section git unavailable: RuntimeError)", t.split("\n"))
         self.assertIn("(section bash unavailable: RuntimeError)", t.split("\n"))
         self.assertEqual(self.health()["errors"], ["git", "bash"])
-        for h in NINE:
-            if h in (NINE[6], NINE[7]):
+        for h in EIGHT:
+            if h in (EIGHT[5], EIGHT[6]):
                 self.assertNotIn(h, t)
             else:
                 self.assertEqual((f35.section(t, h) or "").replace("(section git unavailable: RuntimeError)", "")
@@ -461,7 +463,7 @@ class FailSafe(F36):
 
     def test_ac57_replacement_survives_cap_trimming(self):
         self.repo_dir = self.repo()
-        for name in ("user_messages", "files", "assistant", "decisions"):
+        for name in ("user_messages", "files", "assistant", "open_tasks"):
             with self.subTest(name):
                 shutil.rmtree(self.hd, ignore_errors=True)
                 self.write_transcript(self.rich(pad=1000, path_len=250) + [tool("TaskCreate", subject=("n%03d" % i) + "q" * 150) for i in range(400)])

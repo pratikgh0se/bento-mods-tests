@@ -5,7 +5,8 @@ HOOKS_DIR = (os.environ.get("HANDOFF_HOOKS_DIR") or os.environ.get("HOOKS_DIR")
              or os.path.expanduser("~/CodeBase/machine-setup/claude/hooks"))
 PRE = os.path.join(HOOKS_DIR, "precompact-handoff.py")
 POST = os.path.join(HOOKS_DIR, "postcompact-inject.py")
-CAP = 20000  # F37.1 (was 9500)
+CAP = 14000  # F39.6 (F37.1: 20,000; was 9,500)
+OLD_CAP37 = 20000
 OLD_CAP = 9500
 FOOTER_FMT = "Full transcript: {p}. Read it for exact details before guessing."
 AGENT_H = "## Agent handoff (written by the working agent)"
@@ -14,16 +15,21 @@ SUMMARY_H = "## Fresh summary at compaction (sonnet; verify against facts)"  # F
 SUMMARY_FAIL = "Fresh summary failed: "
 FACTS_H = "## Facts (auto-extracted)"
 WARN_PFX = "Agent handoff may be stale: "
-# F35.D final order of the nine facts sections (NINE); SECTIONS keeps the six pre-F35 ones in their unchanged relative order.
-NINE = ["## Last user messages (oldest first)", "## Decisions via questions", "## Files touched (last 30)",
-        "## Task state", "## Open tasks", "## Background agents", "## Git", "## Last Bash commands",
-        "## Last assistant message"]
+# F35.D order of the facts sections minus `## Decisions via questions` (no longer emitted since F39.6): EIGHT.
+# (Old name NINE removed: indexes shifted, NINE[0] -> EIGHT[0], NINE[k>=2] -> EIGHT[k-1].)
+DECISIONS_H = "## Decisions via questions"  # F39.6: never emitted any more (used in NotIn asserts)
+EIGHT = ["## Last user messages (oldest first)", "## Files touched (last 30)",
+         "## Task state", "## Open tasks", "## Background agents", "## Git", "## Last Bash commands",
+         "## Last assistant message"]
+AUTHORITY = ("- authority: the user's latest words > Project decisions > Agent handoff > Fresh summary > Claude Code's "
+             "summary > Facts. If two disagree, the newer statement from the user wins; if unsure, ask.")  # F39.5
+PROJECT_H_PFX = "## Project decisions (active; full ledger: "
 SECTIONS = ["## Last user messages (oldest first)", "## Files touched (last 30)",
             "## Task state", "## Git", "## Last Bash commands", "## Last assistant message"]
 
 # F37.2 drop order (first dropped first); the Last user messages section is dropped only after all eight others.
 DROP37 = ["## Files touched (last 30)", "## Last Bash commands", "## Git", "## Task state", "## Last assistant message",
-          "## Background agents", "## Open tasks", "## Decisions via questions", "## Last user messages (oldest first)"]
+          "## Background agents", "## Open tasks", "## Last user messages (oldest first)"]  # F39.6: no Decisions via questions
 PLAIN = "Pre-compaction handoff (auto-saved):\n"
 PLAIN2 = "Pre-compaction handoff (auto-saved, part 2):\n"
 
@@ -38,15 +44,32 @@ def sec_names(text):
 
 SHIM = """#!/bin/sh
 D="$(dirname "$0")"
-echo invoked >> "$D/invoked"
-printf '%s\\n' "$@" > "$D/args"
-printf '%s\\0' "$@" > "$D/argv0"
-env > "$D/env"
-cat > "$D/stdin"
-if [ -f "$D/sleepx" ]; then exec sleep "$(cat "$D/sleepx")"; fi
-if [ -f "$D/sleep" ]; then sleep "$(cat "$D/sleep")"; fi
-if [ -f "$D/out" ]; then cat "$D/out"; fi
-if [ -f "$D/rc" ]; then exit "$(cat "$D/rc")"; fi
+# F39: the role is decided by the --system-prompt value: the ledger merge call vs the summary call (and anything else).
+role=summary; prev=""
+for a in "$@"; do
+  if [ "$prev" = "--system-prompt" ]; then
+    case "$a" in "You maintain a project's decisions ledger"*) role=merge;; esac
+  fi
+  prev="$a"
+done
+if [ "$role" = "merge" ]; then
+  P="$D/merge."
+  echo invoked >> "$D/merge.invoked"
+  n="$(wc -l < "$D/merge.invoked" | tr -d ' ')"
+else
+  P="$D/"
+  echo invoked >> "$D/invoked"
+  n="$(wc -l < "$D/invoked" | tr -d ' ')"
+fi
+printf '%s\\n' "$@" > "${P}args"
+printf '%s\\0' "$@" > "${P}argv0"
+env > "${P}env"
+cat > "${P}stdin"
+cp "${P}stdin" "${P}stdin.$n"
+if [ -f "${P}sleepx" ]; then exec sleep "$(cat "${P}sleepx")"; fi
+if [ -f "${P}sleep" ]; then sleep "$(cat "${P}sleep")"; fi
+if [ -f "${P}out.$n" ]; then cat "${P}out.$n"; elif [ -f "${P}out" ]; then cat "${P}out"; fi
+if [ -f "${P}rc" ]; then exit "$(cat "${P}rc")"; fi
 exit 0
 """
 
@@ -61,7 +84,7 @@ class HookCase(unittest.TestCase):
         self.bin = os.path.join(self.tmp, "bin")
         os.makedirs(self.bin)
         git = shutil.which("git")
-        for tool_name in ("git", "cat", "env", "sleep", "dirname", "sh"):
+        for tool_name in ("git", "cat", "env", "sleep", "dirname", "sh", "wc", "tr", "cp"):
             w = shutil.which(tool_name)
             if w:
                 os.symlink(w, os.path.join(self.bin, tool_name))
@@ -85,8 +108,41 @@ class HookCase(unittest.TestCase):
         if rc is not None:
             open(os.path.join(self.shimdir, "rc"), "w").write(str(rc))
 
+    def set_shim(self, role="merge", out=None, rc=None, sleep=None, sleepx=None, nth=None):
+        """Configure the shim for one role: files `<role>.<knob>` (role `summary` = the unprefixed legacy names).
+        `nth` makes `out` apply to the n-th call of that role only. A None knob is left untouched; clear_shim() removes."""
+        pre = "merge." if role == "merge" else ""
+        for knob, val in (("out" if nth is None else "out.%d" % nth, out), ("rc", rc), ("sleep", sleep), ("sleepx", sleepx)):
+            if val is not None:
+                with open(os.path.join(self.shimdir, pre + knob), "w") as f:
+                    f.write(str(val))
+
+    def clear_shim(self, role="merge", *knobs):
+        pre = "merge." if role == "merge" else ""
+        for knob in knobs or ("out", "rc", "sleep", "sleepx"):
+            path = os.path.join(self.shimdir, pre + knob)
+            if os.path.exists(path):
+                os.remove(path)
+
     def shim_invoked(self):
         return os.path.exists(os.path.join(self.shimdir, "invoked"))
+
+    def merge_calls(self):
+        p = os.path.join(self.shimdir, "merge.invoked")
+        return len(open(p).read().split()) if os.path.exists(p) else 0
+
+    def merge_stdin(self, n=None):
+        """stdin of the last (or n-th, 1-based) ledger merge call."""
+        return open(os.path.join(self.shimdir, "merge.stdin" if n is None else "merge.stdin.%d" % n)).read()
+
+    def merge_argv(self):
+        raw = open(os.path.join(self.shimdir, "merge.argv0"), "rb").read().decode()
+        parts = raw.split("\0")
+        assert parts[-1] == "", parts[-1]
+        return parts[:-1]
+
+    def summary_stdin(self, n=None):
+        return open(os.path.join(self.shimdir, "stdin" if n is None else "stdin.%d" % n)).read()
 
     def shim_file(self, n):
         return open(os.path.join(self.shimdir, n)).read()
@@ -99,8 +155,14 @@ class HookCase(unittest.TestCase):
         return parts[:-1]
 
     # --- running ---
+    # F39: the ledger merge would call the `claude` shim and perturb every pre-F39 test that counts shim calls, so the
+    # ledger is OFF by default for old tests (HANDOFF_LEDGER=0). F39 tests set LEDGER_ENV = None (ledger enabled).
+    LEDGER_ENV = "0"
+
     def env(self, fallback="0", extra=None):
         e = {"HOME": self.home, "PATH": self.bin, "LANG": "C.UTF-8"}
+        if self.LEDGER_ENV is not None:
+            e["HANDOFF_LEDGER"] = self.LEDGER_ENV
         if fallback is not None:
             e["HANDOFF_HAIKU_FALLBACK"] = fallback
         e.update(extra or {})
@@ -263,7 +325,7 @@ def warn_line(text):
 
 
 def heads9(text):
-    return [h for h in NINE if h in text]
+    return [h for h in EIGHT if h in text]
 
 
 def heads(text):

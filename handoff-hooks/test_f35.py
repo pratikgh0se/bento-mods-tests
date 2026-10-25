@@ -305,7 +305,7 @@ class Staleness(F35):
         self.assertTrue(w is None or "unchanged since" not in w, w)
 
 
-# ---------------------------------------------------------------- Size (AC 39; F37.1: cap 20,000)
+# ---------------------------------------------------------------- Size (AC 39; F39.6: cap 14,000, summary cap 4,000)
 class Size(F35):
     def _facts_transcript(self, ntasks=0):
         e = [user(("U%02d" % i) + "u" * 300) for i in range(4)]
@@ -319,8 +319,8 @@ class Size(F35):
         # F38.5 amends F35.C ("Haiku shortened first"): whole facts sections go first, the summary stays whole
         self.install_shim(out="Y" * 4000)
         self.put_agent("L" * 5000, meta={"agentWrittenAt": 1})
-        # calibrate: facts large enough that agent + 4000 summary chars exceed 20,000 but the no-summary file fits
-        n, ref = self.fit(lambda n: self._facts_transcript(3 + n), 17500)
+        # calibrate: facts large enough that agent + 4000 summary chars exceed the cap but the no-summary file fits
+        n, ref = self.fit(lambda n: self._facts_transcript(3 + n), 11500)  # F39.6: cap 14,000
         t = self.run_and_read(fallback="1")
         self.assertLessEqual(len(t), CAP)
         self.assertIn("L" * 5000, t)
@@ -334,15 +334,15 @@ class Size(F35):
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
     def _tight_cwd(self):
-        """cwd length (header only; nonexistent dir) so the no-Haiku file is ~19,900 chars: < 200 chars of Haiku fit."""
+        """cwd length (header only; nonexistent dir) so the no-summary file is ~13,900 chars: < 200 chars of summary fit."""
         self.write_transcript(self._facts_transcript())
         c0 = 1000
         t0 = self.run_and_read(fallback="0", cwd="/" + "d" * c0)
-        c = c0 + (19900 - len(t0))
+        c = c0 + (CAP - 100 - len(t0))
         cwd = "/" + "d" * c
         t = self.run_and_read(fallback="0", cwd=cwd)
         self.assertLessEqual(len(t), CAP)
-        self.assertGreaterEqual(len(t), 19800)
+        self.assertGreaterEqual(len(t), CAP - 200)
         return cwd
 
     def test_ac39_tight_file_summary_shortened_or_omitted_never_failure_line(self):
@@ -376,20 +376,25 @@ class Size(F35):
 
 # ---------------------------------------------------------------- Facts (AC 40-45)
 class Decisions(F35):
-    def test_ac40_two_questions_answers_map(self):
+    """F39.6 amends AC 40-45: `## Decisions via questions` is no longer emitted (the pairs now feed the F39.3 ledger
+    merge, see test_f39_ledger.py for the ANSWER lines). Every AC 40/41 fixture is kept and now asserts absence."""
+
+    def absent(self, entries):
+        t = self.text_with(entries)
+        self.assertNotIn(DECISIONS_H, t)
+        return t
+
+    def test_ac40_two_questions_answers_section_gone(self):
         qs = [("Which file name?", "Name", ["alpha", "beta"]), ("Which colour?", "Colour", ["red", "blue"])]
-        t = self.text_with([user("start the work"), ask("q1", qs),
-                            answer("q1", {"Which file name?": "alpha", "Which colour?": "blue"}), asst("ok")])
-        sec = section(t, "## Decisions via questions")
-        self.assertIsNotNone(sec)
-        lines = [l for l in sec.split("\n") if l.strip()]
-        self.assertEqual(lines, ["- [Name] Which file name? -> alpha", "- [Colour] Which colour? -> blue"])
-        self.assertEqual(heads9(t)[:2], [NINE[0], NINE[1]])
+        t = self.absent([user("start the work"), ask("q1", qs),
+                         answer("q1", {"Which file name?": "alpha", "Which colour?": "blue"}), asst("ok")])
+        self.assertEqual(heads9(t)[0], EIGHT[0])
         last = section(t, "## Last user messages (oldest first)")
         self.assertIn("- start the work", last)
         self.assertNotIn("alpha", last)
         self.assertNotIn("blue", last)
         self.assertNotIn("User has answered", last)
+        self.assertNotIn("- [Name] Which file name? -> alpha", t)
 
     def test_ac41_multiselect_notes_and_missing_header(self):
         e = [user("go"),
@@ -398,56 +403,41 @@ class Decisions(F35):
                  {"question": "No header here", "options": [{"label": "x"}]}]}),
              answer("q1", {"Pick many": ["A", "B"], "No header here": "x"}, notes={"Pick many": "because reasons"}),
              asst("ok")]
-        t = self.text_with(e)
-        lines = [l for l in section(t, "## Decisions via questions").split("\n") if l.strip()]
-        self.assertEqual(lines, ["- [Many] Pick many -> A, B (notes: because reasons)", "- No header here -> x"])
+        t = self.absent(e)
+        self.assertNotIn("because reasons", t)
 
-    def test_ac41_truncation_to_200(self):
+    def test_ac41_truncation_fixture(self):
         q, a, n = "Q" * 250, "A" * 250, "N" * 250
-        e = [user("go"), ask("q1", [(q, "H", ["x"])]), answer("q1", {q: a}, notes={q: n}), asst("ok")]
-        t = self.text_with(e)
-        line = [l for l in section(t, "## Decisions via questions").split("\n") if l.strip()][0]
-        self.assertEqual(line, "- [H] %s -> %s (notes: %s)" % ("Q" * 197 + "...", "A" * 197 + "...", "N" * 197 + "..."))
-        # exactly 200 stays whole
-        q2 = "R" * 200
-        t = self.text_with([user("go"), ask("q2", [(q2, "H", ["x"])]), answer("q2", {q2: "ok"}), asst("ok")])
-        self.assertIn("- [H] %s -> ok" % q2, t)
+        t = self.absent([user("go"), ask("q1", [(q, "H", ["x"])]), answer("q1", {q: a}, notes={q: n}), asst("ok")])
+        self.assertNotIn("Q" * 100, t)
 
-    def test_ac41_last_ten_oldest_first(self):
+    def test_ac41_twelve_pairs_no_section(self):
         e = [user("go")]
         for i in range(12):
             q = "Question %02d?" % i
             e += [ask("q%d" % i, [(q, "H%02d" % i, ["x"])]), answer("q%d" % i, {q: "ans%02d" % i})]
         e.append(asst("ok"))
-        t = self.text_with(e)
-        lines = [l for l in section(t, "## Decisions via questions").split("\n") if l.strip()]
-        self.assertEqual(lines, ["- [H%02d] Question %02d? -> ans%02d" % (i, i, i) for i in range(2, 12)])
+        t = self.absent(e)
+        self.assertNotIn("ans11", t)
 
-    def test_ac41_unanswered_skipped(self):
+    def test_ac41_unanswered_and_errored_no_section(self):
         e = [user("go"),
              ask("e1", [("Errored?", "E", ["x"])]), tres("e1", "rejected by user", is_error=True),
              ask("n1", [("Never answered?", "N", ["x"])]),
              ask("k1", [("Kept?", "K", ["x"])]), answer("k1", {"Kept?": "yes"}), asst("ok")]
-        t = self.text_with(e)
-        sec = section(t, "## Decisions via questions")
-        self.assertEqual([l for l in sec.split("\n") if l.strip()], ["- [K] Kept? -> yes"])
-        self.assertNotIn("Errored?", t.split("## Decisions via questions")[1].split("\n## ")[0])
+        t = self.absent(e)
+        self.assertNotIn("Errored?", t)
 
-    def test_ac41_only_unanswered_means_no_section(self):
-        t = self.text_with([user("go"), ask("n1", [("Never?", "N", ["x"])]), asst("ok")])
-        self.assertNotIn("## Decisions via questions", t)
-
-    def test_ac41_result_text_pattern_fallback(self):
+    def test_ac41_result_text_pattern_fixture(self):
         e = [user("go"), ask("q1", [("Pick one?", "P", ["a", "b"]), ("And two?", "T", ["c"])]),
              tres("q1", 'User has answered your questions: "Pick one?"="b", "And two?"="c". You can now continue.'),
              asst("ok")]
-        t = self.text_with(e)
-        lines = [l for l in section(t, "## Decisions via questions").split("\n") if l.strip()]
-        self.assertEqual(lines, ["- [P] Pick one? -> b", "- [T] And two? -> c"])
+        t = self.absent(e)
+        self.assertNotIn("Pick one?", t)
 
-    def test_ac41_notes_via_annotations_only_when_present(self):
+    def test_ac41_no_notes_marker(self):
         e = [user("go"), ask("q1", [("Alpha?", "A", ["x"])]), answer("q1", {"Alpha?": "x"}), asst("ok")]
-        t = self.text_with(e)
+        t = self.absent(e)
         self.assertNotIn("(notes:", t)
 
 
@@ -656,13 +646,14 @@ class OrderAndTrim(F35):
         e.append(asst("A" * (pad + 50)))
         return e
 
-    def test_ac45_all_nine_sections_in_order(self):
+    def test_ac45_all_eight_sections_in_order(self):
         repo = self._repo()
         self.write_transcript(self._rich(pad=40))
         t = self.run_and_read(cwd=repo)
-        pos = [t.index(h) for h in NINE]
+        pos = [t.index(h) for h in EIGHT]
         self.assertEqual(pos, sorted(pos))
-        self.assertEqual(heads9(t), NINE)
+        self.assertEqual(heads9(t), EIGHT)
+        self.assertNotIn(DECISIONS_H, t)  # F39.6
 
     def _drop_order_ok(self, t):
         """F37.2 order: dropped sections must be a prefix of DROP37 (Last user messages last of all)."""
@@ -676,7 +667,7 @@ class OrderAndTrim(F35):
         return True, present
 
     def test_ac45_trim_order_new_three_last(self):
-        # F37.2 supersedes F35.D: Files touched first, Decisions via questions and Last user messages last.
+        # F37.2 supersedes F35.D: Files touched first, Last user messages last (F39.6: no Decisions via questions).
         repo = self._repo()
         for pad, plen, nt in ((700, 100, 130), (1000, 250, 400)):
             self.write_transcript(self._rich(pad=pad, path_len=plen, ntasks=nt))
@@ -686,8 +677,7 @@ class OrderAndTrim(F35):
             self.assertTrue(ok, present)
             self.assertFalse(present[0], "pressure expected: first-dropped section (Files touched) should be gone")
             self.assertTrue(present[-1], "Last user messages must outlive everything else")
-            self.assertTrue(present[-2], "Decisions via questions must outlive everything but the user messages")
-            self.assertIn("- [Name] Which name? -> alpha", t)
+            self.assertNotIn(DECISIONS_H, t)
             self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
     def test_ac45_six_old_sections_keep_relative_order(self):

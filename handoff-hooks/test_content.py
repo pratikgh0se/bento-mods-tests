@@ -23,6 +23,12 @@ class Content(HookCase):
         self.assertEqual(idx, sorted(idx))
         self.assertRegex(t, r"- time: \d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ")
         self.assertEqual(lines[-1], FOOTER_FMT.format(p=self.tpath))
+        # F39.5: the authority line directly after the header lines, before the blank line
+        self.assertEqual(lines.count(AUTHORITY), 1)
+        ai = lines.index(AUTHORITY)
+        self.assertGreater(ai, max(idx))
+        self.assertEqual(lines[ai + 1], "")
+        self.assertTrue(all(l.startswith("- ") for l in lines[1:ai]), lines[:ai + 1])
 
     def test_ac19_all_sections_order_and_limits(self):
         repo = os.path.join(self.tmp, "repo")

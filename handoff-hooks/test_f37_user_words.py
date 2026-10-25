@@ -9,12 +9,12 @@ from test_content import git
 
 CONT1 = re.compile(r"^\[Handoff continues in part 2 \(injected separately; parts may appear in any order\) and in (/.+-latest\.md): (\d+) more chars \(sections: (.+)\)\. Read it before acting\.\]$")
 CONT2 = re.compile(r"^\[Handoff continues in (/.+-latest\.md): (\d+) more chars \(sections: (.+)\)\. Read it before acting\.\]$")
-ALL9 = set(DROP37)
+ALL8 = set(DROP37)  # F39.6: eight sections (no Decisions via questions)
 
 
 def synth_file(total, secs=None, sec_len=1500, agent_len=5000):
     """A realistic latest.md of ~`total` chars: header, agent section, `## ` fact sections, footer."""
-    names = secs or [h[3:] for h in NINE]
+    names = secs or [h[3:] for h in EIGHT]
     out = "# Handoff (pre-compaction)\n- session: S\n- cwd: /x\n- trigger: auto\n\n"
     out += AGENT_H + "\n" + ("L" * (agent_len - 1)) + "\n\n"
     out += FACTS_H + "\n\n"
@@ -63,7 +63,7 @@ class F37(f36.F36):
         self.write_transcript(entries)
         return self.run_and_read(cwd=self.repo_dir)
 
-    def find_k(self, build, k, hi, cwd=None, expected=ALL9):
+    def find_k(self, build, k, hi, cwd=None, expected=ALL8):
         """Smallest knob value whose file drops >= k of `expected` sections; returns that file text."""
         def run(x):
             self.write_transcript(build(x))
@@ -86,34 +86,34 @@ class F37(f36.F36):
     def setUp(self):
         super().setUp()
         self.repo_dir = self.rich_repo()
-        self.put_agent("L" * 5000, age_min=1)
+        self.put_agent("L" * 1000, age_min=1)  # F39.6: cap 14,000 (was 20,000), so a smaller agent body keeps all eight sections at knob 0
 
     # ---------------------------------------------------------------- AC 72
     def test_ac72_user_words_survive_heavy_transcript(self):
         t = self.run_build(self.entries(ntasks=400, nd=10, hdr=150, plen=250))
         self.assertLessEqual(len(t), CAP)
-        self.assertIn(NINE[0], t)
-        users = [l for l in f35.section(t, NINE[0]).split("\n") if l.startswith("- ")]
+        self.assertIn(EIGHT[0], t)
+        users = [l for l in f35.section(t, EIGHT[0]).split("\n") if l.startswith("- ")]
         self.assertEqual(len(users), 8)
         self.assertIn("U11 ", users[-1])
         self.assertIn("U04 ", users[0])
         self.assertIn(AGENT_H, t)
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
         self.assertNotIn(DROP37[0], t, "pressure expected: Files touched dropped first")
-        for h in (NINE[0], NINE[1], NINE[4]):  # Last user messages, Decisions, Open tasks
+        for h in (EIGHT[0], EIGHT[3]):  # Last user messages, Open tasks (F39.6: no Decisions section)
             if h not in t:
                 self.assertNotIn(DROP37[0], t)
 
     def test_ac72_old_cap_is_gone(self):
-        # a file between the old 9,500 cap and the new 20,000 cap keeps every section
+        # a file between the old 9,500 cap and the F39.6 cap (14,000) keeps every section
         t = self.run_build(self.entries(ntasks=3))
         self.assertGreater(len(t), OLD_CAP)
-        self.assertEqual(heads9(t), NINE)
+        self.assertEqual(heads9(t), EIGHT)
 
     # ---------------------------------------------------------------- AC 73
     def _check_k(self, t, k):
-        self.assertEqual(dropped37(t, ALL9), DROP37[:k])
-        self.assertIn(NINE[0], t)
+        self.assertEqual(dropped37(t, ALL8), DROP37[:k])
+        self.assertIn(EIGHT[0], t)
         self.assertLessEqual(len(t), CAP)
         self.assertIn(AGENT_H, t)
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
@@ -125,17 +125,17 @@ class F37(f36.F36):
         self._check_k(self.find_k(lambda n: self.entries(ntasks=3 + n), 3, 400), 3)
 
     def test_ac73_drop_order_all_eight_users_last(self):
-        # The eight non-user sections cannot be forced out by transcript content alone (each is size-capped), so the
+        # The non-user sections cannot be forced out by transcript content alone (each is size-capped), so the
         # header is inflated with a very long (nonexistent) cwd; that means no Git section (see SPEC-GAPS.md).
-        exp = ALL9 - {"## Git"}
-        t = self.find_k(lambda m: self.entries(ntasks=3, nd=10, hdr=200, plen=100), 7, 150,
+        exp = ALL8 - {"## Git"}
+        t = self.find_k(lambda m: self.entries(ntasks=3, nd=10, hdr=200, plen=100), 6, 150,
                         cwd=lambda m: "/" + "d" * (100 * m + 100), expected=exp)
-        self.assertEqual(dropped37(t, exp), [h for h in DROP37 if h in exp][:7])
+        self.assertEqual(dropped37(t, exp), [h for h in DROP37 if h in exp][:6])
         for h in DROP37[:-1]:
             self.assertNotIn(h, t)
-        self.assertIn(NINE[0], t)
+        self.assertIn(EIGHT[0], t)
         self.assertLessEqual(len(t), CAP)
-        self.assertEqual(len([l for l in f35.section(t, NINE[0]).split("\n") if l.startswith("- ")]), 8)
+        self.assertEqual(len([l for l in f35.section(t, EIGHT[0]).split("\n") if l.startswith("- ")]), 8)
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
     # ---------------------------------------------------------------- AC 74
