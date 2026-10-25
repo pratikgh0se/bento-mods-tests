@@ -10,6 +10,8 @@ import test_f35 as f35
 LEAN = ("Keep the ledger lean: when a new decision changes, narrows or repeats an older one, rewrite the older entry "
         "as SUPERSEDED by the new id (because: replaced, narrowed or merged). Two active entries must never say the "
         "same thing or contradict each other.")
+KEEP = ("When you merge or narrow entries, keep every concrete value from both (names, numbers, paths, limits, "
+        "schedules).")  # F39.11
 MERGE_SYSTEM = "You maintain a project's decisions ledger for an AI coding agent. Output only the ledger."
 MERGE_PROMPT = (
     "Stdin has the CURRENT LEDGER, then NEW CONVERSATION since it was last updated. Output the complete updated "
@@ -19,7 +21,7 @@ MERGE_PROMPT = (
     "id with the reason; never delete entries. Do not record plans, progress or the assistant's own unapproved "
     "proposals. Format of active lines: \"- D<n> [YYYY-MM-DD] <decision> | why: <reason>\". Format of superseded "
     "lines: \"- D<n> [YYYY-MM-DD] SUPERSEDED by D<m> [YYYY-MM-DD]: <old decision> | because: <reason>\". "
-    + LEAN)
+    + LEAN + " " + KEEP)
 LEDGER_KEYS = ["ledger", "ledger_active", "ledger_superseded", "ledger_restored", "ledger_chars"]
 SUMMARY_PROMPT_BITS = ('prefixed "unverified:"', "under 3500 chars")
 STANDING = "STANDING DECISIONS (do not contradict"
@@ -288,15 +290,51 @@ class FirstMerge(F39):
         self.assertIn("HANDOFF_HOOK_CHILD=1", env)
         self.assertFalse([l for l in env if l.startswith("CLAUDE_CODE_AUTO_COMPACT_WINDOW")], env)
 
-    def test_entry_longer_than_400_chars_is_cut_with_ellipsis(self):
-        self.set_shim("merge", out="- D1 [2026-10-25] " + "x" * 600 + " | why: r\n" + L2 + "\n")
+    def test_ac115_long_line_kept_at_700_why_cut_first(self):
+        # F39.11: cap 700; parse first, cut the why text first, then the decision text; form always preserved
+        line = "- D1 [2026-10-25] " + "d" * 900 + " | why: " + "w" * 300
+        self.set_shim("merge", out=line + "\n" + L2 + "\n")
         self.go()
-        lines = self.ledger_lines()
-        d1 = [l for l in lines if l.startswith("- D1 ")]
-        self.assertEqual(len(d1), 1, lines)
-        self.assertTrue(397 <= len(d1[0]) <= 400, len(d1[0]))
-        self.assertIn("...", d1[0])  # the cut is marked with `...` (where exactly is not pinned: see SPEC-GAPS.md F39)
-        self.assertTrue(all(len(l) <= 400 for l in lines))
+        got = [l for l in self.ledger_lines() if l.startswith("- D1 ")]
+        self.assertEqual(len(got), 1, self.ledger_lines())
+        self.assertLessEqual(len(got[0]), 700)
+        self.assertGreater(len(got[0]), 600)  # cut to fit, not dropped or cut to 400
+        self.assertRegex(got[0], ACT_RE.pattern)
+        self.assertNotIn("w" * 300, got[0])
+        self.assertTrue(got[0].endswith("..."))
+        dec = re.match(r"^- D1 \[[^\]]+\] (.*) \| why: (.*)$", got[0])
+        self.assertIsNotNone(dec, got[0])
+        if "d" * 900 not in dec.group(1):  # decision text was cut: the why text must already be gone
+            self.assertLessEqual(len(dec.group(2)), 3, dec.group(2))
+            self.assertTrue(dec.group(1).endswith("..."))
+        self.assertEqual(self.health()["ledger"], "ok")
+
+    def test_ac115_long_why_cut_decision_kept(self):
+        line = "- D1 [2026-10-25] " + "d" * 300 + " | why: " + "w" * 900
+        self.set_shim("merge", out=line + "\n" + L2 + "\n")
+        self.go()
+        got = [l for l in self.ledger_lines() if l.startswith("- D1 ")][0]
+        self.assertLessEqual(len(got), 700)
+        self.assertIn("d" * 300, got)
+        self.assertRegex(got, ACT_RE.pattern)
+        self.assertTrue(got.endswith("..."))
+        self.assertGreater(len(got), 600)
+
+    def test_ac115_line_between_400_and_700_kept_whole(self):
+        line = "- D1 [2026-10-25] " + "d" * 400 + " | why: " + "w" * 150
+        self.set_shim("merge", out=line + "\n" + L2 + "\n")
+        self.go()
+        self.assertIn(line, self.ledger_lines())
+
+    def test_ac115_long_superseded_line_keeps_its_form(self):
+        sup = "- D1 [2026-10-20] SUPERSEDED by D2 [2026-10-25]: " + "o" * 900 + " | because: " + "b" * 300
+        new = "- D2 [2026-10-25] Use spaces | why: user said so"
+        self.set_shim("merge", out=sup + "\n" + new + "\n")
+        self.go()
+        got = [l for l in self.ledger_lines() if l.startswith("- D1 ")][0]
+        self.assertLessEqual(len(got), 700)
+        self.assertRegex(got, SUP_RE.pattern)
+        self.assertEqual(self.health()["ledger_superseded"], 1)
 
 
 # ---------------------------------------------------------------- AC 95
@@ -1043,11 +1081,18 @@ class CompactParts(InjectLedger):
 
 
 class LeanPromptAndTemplate(F39):
+    def test_ac116_merge_prompt_ends_with_keep_values_sentence(self):
+        self.go()
+        self.assertTrue(self.merge_argv()[-1].endswith(KEEP))
+        self.assertLess(self.merge_argv()[-1].index(LEAN), self.merge_argv()[-1].index(KEEP))
+
     def test_ac113_merge_prompt_ends_with_lean_sentences(self):
         self.go()
         last = self.merge_argv()[-1]
         self.assertEqual(last, MERGE_PROMPT)
-        self.assertTrue(last.endswith(LEAN))
+        self.assertIn(LEAN, last)  # F39.10 sentences; F39.11 appends one more after them (AC 116)
+        self.assertTrue(last.endswith(LEAN + " " + KEEP))
+        self.assertTrue(last.endswith(KEEP))
         self.assertIn("Format of superseded lines", last)
 
     def test_ac114_template_compact_and_start_groups(self):
