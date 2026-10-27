@@ -287,7 +287,7 @@ for (const v of [95, 96, 99]) {
     const c = await atTool(w, 380_000)
     expect(c.length).toBe(1)
     expect(c[0]).toContain('95%')
-  }, { options: { nudge_atPercent: v } })
+  }, { options: { nudge_atPercent: v, nudge_finalPercent: 0 } })
 }
 
 t('C33 nudge_everyTokens=1000 clamps to 10,000 (300k, then 310k)', async ($, on) => {
