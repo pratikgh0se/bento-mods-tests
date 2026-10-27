@@ -246,7 +246,7 @@ class Healthy(CanaryCase):
                     walk(v)
         walk(first["settings"])
         # F37.6: the canary registers postcompact-inject.py --part 1, 2 and 3 (three 10 s hooks) plus the PreCompact hook (90 s)
-        self.assertEqual(sorted(timeouts), [10, 10, 10, 90])
+        self.assertEqual(sorted(timeouts), [10, 10, 10, 150])  # F40.2: PreCompact timeout 150
         for k in (1, 2, 3):
             self.assertRegex(s, r"postcompact-inject\.py\s+--part[ =]%d" % k)
         self.assertEqual(sorted(first["settings"]["hooks"].keys()), ["PreCompact", "SessionStart"])

@@ -7,7 +7,7 @@ import test_f35 as f35
 from test_content import git
 
 KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "summary_model", "ledger", "ledger_active",
-        "ledger_superseded", "ledger_restored", "ledger_chars", "duration_ms",
+        "ledger_superseded", "ledger_restored", "ledger_chars", "ledger_error", "duration_ms",
         "output_chars", "truncated", "errors", "status", "hook_version", "canary_child"]
 # F37.4 adds `inline_cut` (bool); its position is not specified: tests require KEYS in order plus inline_cut anywhere.
 KEYS37 = set(KEYS) | {"inline_cut"}

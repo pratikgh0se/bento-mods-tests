@@ -14,15 +14,17 @@ KEEP = ("When you merge or narrow entries, keep every concrete value from both (
         "schedules).")  # F39.11
 MERGE_SYSTEM = "You maintain a project's decisions ledger for an AI coding agent. Output only the ledger."
 MERGE_PROMPT = (
-    "Stdin has the CURRENT LEDGER, then NEW CONVERSATION since it was last updated. Output the complete updated "
-    "ledger in exactly the same format. Rules: keep every existing entry and its id. Add an entry only for a decision "
+    "Stdin has the CURRENT LEDGER, then NEW CONVERSATION since it was last updated. Output only the changes, one per "
+    "line, nothing else: new decisions as \"- D<n> [YYYY-MM-DD] <decision> | why: <reason>\" with n continuing after the "
+    "highest existing id, and replacements as \"SUPERSEDE D<old> BY D<new>: <reason>\" where D<new> is an existing or "
+    "newly added id. Output \"NO CHANGES\" if nothing qualifies. Rules: keep every existing entry and its id. Add an entry only for a decision "
     "the user made or explicitly approved (a choice, a rule, a constraint, a permission, a rejected option), dated "
     "with the day it was made. When the user replaces an earlier decision, rewrite that entry as SUPERSEDED by the new "
     "id with the reason; never delete entries. Do not record plans, progress or the assistant's own unapproved "
     "proposals. Format of active lines: \"- D<n> [YYYY-MM-DD] <decision> | why: <reason>\". Format of superseded "
     "lines: \"- D<n> [YYYY-MM-DD] SUPERSEDED by D<m> [YYYY-MM-DD]: <old decision> | because: <reason>\". "
     + LEAN + " " + KEEP)
-LEDGER_KEYS = ["ledger", "ledger_active", "ledger_superseded", "ledger_restored", "ledger_chars"]
+LEDGER_KEYS = ["ledger", "ledger_active", "ledger_superseded", "ledger_restored", "ledger_chars", "ledger_error"]  # F40.4
 SUMMARY_PROMPT_BITS = ('prefixed "unverified:"', "under 3500 chars")
 STANDING = "STANDING DECISIONS (do not contradict"
 SUMMARY_TEXT = "SUMMARY-F39 " + "s" * 288
@@ -69,6 +71,11 @@ def answer_ts(id_, answers, when, notes=None):
     d = f35.answer(id_, answers, notes=notes)
     d["timestamp"] = when
     return d
+
+
+def today_dates():
+    """F40.1 dates a rewritten entry `today`: accept the UTC or the local calendar day (not pinned)."""
+    return {time.strftime("%Y-%m-%d", time.gmtime()), time.strftime("%Y-%m-%d")}
 
 
 def ledger_line(n, width=200, day=20):
@@ -246,11 +253,17 @@ class FirstMerge(F39):
             self.assertNotIn(junk, txt)
 
     def test_superseded_form_is_parsed(self):
-        sup = "- D1 [2026-10-20] SUPERSEDED by D2 [2026-10-25]: Use tabs | because: user switched"
+        # F40.1: a superseded line is no valid model output any more; the SUPERSEDE change line rewrites the old entry
         new = "- D2 [2026-10-25] Use spaces | why: user said so"
-        self.set_shim("merge", out=sup + "\n" + new + "\n")
+        self.seed(["- D1 [2026-10-20] Use tabs | why: style"])
+        self.set_shim("merge", out=new + "\nSUPERSEDE D1 BY D2: user switched\n")
         self.go()
-        self.assertEqual(self.ledger_lines(), [sup, new])
+        lines = self.ledger_lines()
+        self.assertEqual(len(lines), 2, lines)
+        m = re.match(r"^- D1 \[(\d{4}-\d\d-\d\d)\] SUPERSEDED by D2 \[(\d{4}-\d\d-\d\d)\]: Use tabs \| because: user switched$", lines[0])
+        self.assertIsNotNone(m, lines[0])
+        self.assertTrue(set(m.groups()) & today_dates(), lines[0])  # "dated today": which of the two dates is not pinned
+        self.assertEqual(lines[1], new)
 
     def test_summary_switch_does_not_disable_the_ledger(self):
         for fb, extra in (("0", None), (None, {"HANDOFF_SUMMARY": "0"})):
@@ -327,9 +340,9 @@ class FirstMerge(F39):
         self.assertIn(line, self.ledger_lines())
 
     def test_ac115_long_superseded_line_keeps_its_form(self):
-        sup = "- D1 [2026-10-20] SUPERSEDED by D2 [2026-10-25]: " + "o" * 900 + " | because: " + "b" * 300
+        self.seed(["- D1 [2026-10-20] " + "o" * 400 + " | why: style"])
         new = "- D2 [2026-10-25] Use spaces | why: user said so"
-        self.set_shim("merge", out=sup + "\n" + new + "\n")
+        self.set_shim("merge", out=new + "\nSUPERSEDE D1 BY D2: " + "b" * 600 + "\n")
         self.go()
         got = [l for l in self.ledger_lines() if l.startswith("- D1 ")][0]
         self.assertLessEqual(len(got), 700)
@@ -400,7 +413,7 @@ class MergeInput(F39):
 
     def test_second_compaction_merges_only_newer_entries(self):
         self.set_shim("merge", out=LEDGER2, nth=1)
-        self.set_shim("merge", out=LEDGER2 + "- D3 [2026-10-25] Second batch rule | why: later\n", nth=2)
+        self.set_shim("merge", out="- D3 [2026-10-25] Second batch rule | why: later\n", nth=2)  # F40.1: changes only
         self.go()
         self.write_transcript(self.convo() + self.convo(start=30, tag="-2", qid="q2"))
         self.go()
@@ -419,31 +432,33 @@ class MergeInput(F39):
         self.assertEqual(self.ledger_lines()[-1], "- D3 [2026-10-25] Second batch rule | why: later")
         self.assertEqual(parse_ts(self.state()["lastEntryTs"]), parse_ts(ts(35)))
 
-    def test_merge_input_fits_60000_dropping_whole_items_from_the_start(self):
+    def test_merge_input_fits_40000_oldest_first_whole_items(self):
+        # F40.2 (replaces the F39.3 60,000-char drop-from-the-start rule; see also AC 121 in test_f40_ledger_speed.py)
         e = [user(("M%02d " % i) + "u" * 3900, timestamp=ts(i)) for i in range(30)]  # ~117,000 chars
         self.write_transcript(e)
         self.go()
         new = self.conv_part(self.merge_stdin())
-        self.assertLessEqual(len(new), 60000)
-        self.assertGreater(len(new), 50000)
-        self.assertIn("M29 ", new)
-        self.assertNotIn("M00 ", new)
+        self.assertLessEqual(len(new), 40000)
+        self.assertGreater(len(new), 30000)
+        self.assertIn("M00 ", new)
+        self.assertNotIn("M29 ", new)
         first = new.split("\n")[0]
-        self.assertRegex(first, r"^USER \S+: M\d\d u")  # a whole item, starting at its own prefix
+        self.assertRegex(first, r"^USER \S+: M00 u")  # a whole item, starting at its own prefix
 
 
 # ---------------------------------------------------------------- AC 96
 class Validation(F39):
-    def test_missing_ids_restored_verbatim_and_new_id_added(self):
+    """F40.1 delta contract: the model prints CHANGES; old entries are never removed, so nothing is ever restored."""
+    def test_delta_appends_new_id_keeps_old_entries_without_restore(self):
         self.seed(SEED3)
         d4 = "- D4 [2026-10-25] Ship Friday | why: deadline"
-        self.set_shim("merge", out=SEED3[0] + "\n" + d4 + "\n")
+        self.set_shim("merge", out=d4 + "\n")
         self.go()
         lines = self.ledger_lines()
         self.assertEqual(self.ids(lines), [1, 2, 3, 4])
         self.assertEqual(lines, SEED3 + [d4])
         h = self.health()
-        self.assertEqual((h["ledger"], h["ledger_restored"], h["ledger_active"]), ("ok", 2, 4))
+        self.assertEqual((h["ledger"], h["ledger_restored"], h["ledger_active"]), ("ok", 0, 4))
 
     def test_superseded_entry_cannot_become_active(self):
         seed = ["- D1 [2026-10-20] Use tabs | why: style",
@@ -451,7 +466,7 @@ class Validation(F39):
                 "- D3 [2026-10-22] Use API v2 | why: shipped"]
         self.seed(seed)
         d4 = "- D4 [2026-10-25] Ship Friday | why: deadline"
-        self.set_shim("merge", out="\n".join([seed[0], "- D2 [2026-10-21] Keep API v1 | why: compat", seed[2], d4]) + "\n")
+        self.set_shim("merge", out="\n".join(["- D2 [2026-10-21] Keep API v1 | why: compat", d4]) + "\n")
         self.go()
         lines = self.ledger_lines()
         self.assertEqual(lines, seed + [d4])
@@ -463,24 +478,25 @@ class Validation(F39):
         self.seed(seed)
         bogus = "- D2 [2026-10-25] Sneaky late id | why: none"
         d4 = "- D4 [2026-10-25] Ship Friday | why: deadline"
-        self.set_shim("merge", out="\n".join([seed[0], bogus, seed[1], d4]) + "\n")
+        self.set_shim("merge", out="\n".join([bogus, d4]) + "\n")
         self.go()
         lines = self.ledger_lines()
         self.assertEqual(self.ids(lines), [1, 3, 4])
         self.assertNotIn("Sneaky", self.ledger_text())
 
-    def test_garbage_output_keeps_ledger_and_backups(self):
+    def test_garbage_output_with_exit_0_is_unchanged_and_keeps_ledger_and_backups(self):
+        # F40.1: "no valid change lines with exit 0 = ledger: unchanged" (was `failed` under F39.3)
         d, text = self.seed(SEED3)
         before = self.backups()
         self.set_shim("merge", out="I am sorry, I cannot produce a ledger.\nNothing to see here.\n")
         self.go()
         self.assertEqual(open(os.path.join(d, "decisions.md")).read(), text)
         self.assertEqual(self.backups(), before)
-        self.assertEqual(self.health()["ledger"], "failed")
+        self.assertEqual(self.health()["ledger"], "unchanged")
 
     def test_ids_in_result_are_in_id_order(self):
         self.seed(SEED3)
-        self.set_shim("merge", out="- D5 [2026-10-25] Five | why: a\n" + SEED3[2] + "\n- D4 [2026-10-25] Four | why: b\n" + SEED3[1] + "\n" + SEED3[0] + "\n")
+        self.set_shim("merge", out="- D5 [2026-10-25] Five | why: a\n- D4 [2026-10-25] Four | why: b\n")
         self.go()
         lines = self.ledger_lines()
         self.assertEqual(self.ids(lines), sorted(self.ids(lines)))
@@ -512,7 +528,7 @@ class MergeFailures(F39):
         d, text = self.seed(SEED3)
         self.set_shim("merge", sleepx=10)
         t0 = time.time()
-        self.go(extra={"HANDOFF_SUMMARY_TIMEOUT": "2"})
+        self.go(extra={"HANDOFF_LEDGER_TIMEOUT": "2"})  # F40.2: the merge has its own timeout
         dt = time.time() - t0
         self.assertLess(dt, 8, dt)
         self.check_unchanged(d, text, ts(-60))
@@ -627,7 +643,7 @@ class Layout(F39):
     def test_ac101_order_header_authority_agent_summary_facts(self):
         self.fresh_agent()
         self.seed(self.SEED)
-        self.set_shim("merge", out="\n".join(self.SEED) + "\n")
+        self.set_shim("merge", out="NO CHANGES")
         t = self.go_text()
         lines = t.split("\n")
         self.assertEqual(lines[0], "# Handoff (pre-compaction)")
@@ -644,7 +660,7 @@ class Layout(F39):
             shutil.rmtree(self.hd, ignore_errors=True)
             if seeded:
                 self.seed(self.SEED)
-                self.set_shim("merge", out="\n".join(self.SEED) + "\n")
+                self.set_shim("merge", out="NO CHANGES")
             t = self.go_text()
             self.assertNotIn("## Project decisions", t, seeded)
             self.assertNotIn("Project decisions (active", t, seeded)
@@ -656,7 +672,7 @@ class Layout(F39):
         self.agent_file(BODY, meta={"agentWrittenAt": 1})
         seed = [ledger_line(n, 200) for n in range(1, 61)]
         self.seed(seed)
-        self.set_shim("merge", out="\n".join(seed) + "\n")
+        self.set_shim("merge", out="NO CHANGES")
         t = self.go_text()
         self.assertNotIn("## Project decisions", t)
         self.assertNotIn(ledger_line(60, 200), t)
@@ -724,7 +740,7 @@ class SummaryInput(F39):
     def test_ac104_standing_decisions_lists_active_lines_only(self):
         seed = Layout.SEED
         self.seed(seed)
-        self.set_shim("merge", out="\n".join(seed) + "\n")
+        self.set_shim("merge", out="NO CHANGES")
         self.go()
         s = self.summary_stdin()
         head, conv = s.split("\nCONVERSATION:\n", 1)
@@ -789,7 +805,7 @@ class Backups(F39):
     def test_each_success_writes_one_backup_with_the_previous_ledger(self):
         d, text = self.seed(SEED3)
         d4 = "- D4 [2026-10-25] Ship Friday | why: deadline"
-        self.set_shim("merge", out="\n".join(SEED3 + [d4]) + "\n", nth=1)
+        self.set_shim("merge", out=d4 + "\n", nth=1)
         self.go()
         b1 = self.backups()
         self.assertEqual(len(b1), 1)
@@ -797,7 +813,7 @@ class Backups(F39):
         time.sleep(1.2)  # backup names carry a one-second timestamp
         text2 = self.ledger_text()
         self.write_transcript(self.convo() + self.convo(start=30, tag="-2", qid="q2"))
-        self.set_shim("merge", out="\n".join(SEED3 + [d4, "- D5 [2026-10-25] More | why: x"]) + "\n", nth=2)
+        self.set_shim("merge", out="- D5 [2026-10-25] More | why: x\n", nth=2)
         self.go()
         b2 = self.backups()
         self.assertEqual(len(b2), 2)
@@ -811,7 +827,7 @@ class Backups(F39):
         old = ["decisions.20200101T%06dZ.md" % n for n in range(20)]
         for n in old:
             open(os.path.join(d, n), "w").write("old backup " + n)
-        self.set_shim("merge", out="\n".join(SEED3 + ["- D4 [2026-10-25] Ship Friday | why: deadline"]) + "\n")
+        self.set_shim("merge", out="- D4 [2026-10-25] Ship Friday | why: deadline\n")
         self.go()
         b = self.backups()
         self.assertEqual(len(b), 20, b)
@@ -937,7 +953,7 @@ class Health(F39):
         self.go()
         keys = list(self.health().keys())
         i = keys.index("summary_model")
-        self.assertEqual(keys[i + 1:i + 6], LEDGER_KEYS, keys)
+        self.assertEqual(keys[i + 1:i + 7], LEDGER_KEYS, keys)
         h = self.health()
         self.assertIsInstance(h["ledger"], str)
         for k in ("ledger_active", "ledger_superseded", "ledger_restored"):
@@ -950,8 +966,8 @@ class Health(F39):
 
     def test_ac108_superseding_merge_counts(self):
         self.seed(["- D1 [2026-10-20] Use tabs | why: style"])
-        self.set_shim("merge", out="- D1 [2026-10-20] SUPERSEDED by D2 [2026-10-25]: Use tabs | because: user switched\n"
-                                   "- D2 [2026-10-25] Use spaces | why: user said so\n")
+        self.set_shim("merge", out="- D2 [2026-10-25] Use spaces | why: user said so\n"
+                                   "SUPERSEDE D1 BY D2: user switched\n")  # F40.1 delta form
         self.go()
         h = self.health()
         self.assertEqual((h["ledger"], h["ledger_active"], h["ledger_superseded"]), ("ok", 1, 1))
@@ -963,7 +979,7 @@ class Health(F39):
             self.assertEqual(h["ledger"], want)
             keys = list(h.keys())
             i = keys.index("summary_model")
-            self.assertEqual(keys[i + 1:i + 6], LEDGER_KEYS)
+            self.assertEqual(keys[i + 1:i + 7], LEDGER_KEYS)
         self.seed(SEED3)
         self.set_shim("merge", rc=1)
         self.go()

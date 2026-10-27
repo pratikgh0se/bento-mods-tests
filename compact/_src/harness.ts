@@ -503,6 +503,7 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
       return { value: fn(e) }
     })
   opA('fs.exists', e => {
+    if (S.failOps.has('fs.exists')) throw new Error('exists down')
     const p: string = e.path
     if (S.files.has(p)) return true
     if (S.inRepo && p === `${REPO}/.git`) return true
@@ -526,8 +527,9 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
   opA('fs.write', e => {
     if (S.failOps.has('fs.write')) throw new Error('write down')
     S.writes.push({ path: e.path, text: e.text })
-    S.files.set(e.path, e.text)
+    S.files.set(e.path, e.append ? (S.files.get(e.path) ?? '') + e.text : e.text)
   })
+  // F41.4 rotation: the plugin may use `mv` via process.run (handled below) or read+write; no rename op exists in the kit
   op(on, 'process.run', e => {
     const a: string[] = [...e.argv]
     if (a[0] === 'git' && a.includes('--show-toplevel')) {
@@ -535,6 +537,11 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     }
     if (a[0] === 'printenv' || a.join(' ').includes('$HOME')) return proc(`${HOME}\n`)
     if (a[0] === 'git') return proc('')
+    if (a[0] === 'mv' && a.length >= 3 && S.files.has(a[a.length - 2])) {
+      S.files.set(a[a.length - 1], S.files.get(a[a.length - 2]) as string)
+      S.files.delete(a[a.length - 2])
+      return proc('')
+    }
     return proc('', 127, 'not found')
   })
 
@@ -774,7 +781,9 @@ async function atTool(w: W, t: number, inner?: Any): Promise<string[]> {
   return ctxs(await w.tool('Read', { file_path: '/work/repo/a.ts' }, { inner }))
 }
 const metaWrites = (w: W) => w.S.writes.filter(x => x.path === META)
-const handoffDirWrites = (w: W) => w.S.writes.filter(x => x.path.startsWith(`${HOME}/.local/state/claude-handoffs/`))
+// F41.4: the nudge debug log lives in the same dir; it is not a handoff file (C34/C33/C62 predate it)
+const handoffDirWrites = (w: W) =>
+  w.S.writes.filter(x => x.path.startsWith(`${HOME}/.local/state/claude-handoffs/`) && !x.path.includes('/nudge-debug'))
 /** The model writes the agent file: a main-loop Write tool call plus the file landing on disk. */
 async function writeAgent(w: W, body = BIG, tool = 'Write'): Promise<void> {
   w.S.files.set(AGENT, body)

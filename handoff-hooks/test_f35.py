@@ -147,6 +147,8 @@ class Staleness(F35):
             tres("x1", "result text", {"k": 1}, ts=far),
             user("<system-reminder>noise", timestamp=far),
             user("<task-notification>x", timestamp=far),
+            user("<artifact-content-authored-by-others/> y", timestamp=far),  # F40.3
+            user("<bash-input>ls</bash-input>", timestamp=far),
             asst("ok")])
         self.assertIsNone(warn_line(t))
         self.assertIn(AGENT_H, t)

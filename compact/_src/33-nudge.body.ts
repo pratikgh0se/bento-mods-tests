@@ -1,4 +1,5 @@
 // Statements 25-40: F33 handoff nudge (spec compact.md F33.8). Statements 41-46 are in 34-resume-agent.
+// F41 (statement 86): the default cadence is 25,000 (was 50,000); C27 and C37 assert the 25k steps.
 // W = 400,000 is pinned through env CLAUDE_CODE_AUTO_COMPACT_WINDOW unless a test says otherwise.
 
 // ---- 25 ----
@@ -100,20 +101,21 @@ t('C26 (F33.2 rule 2) no env, unknown model, breakdown rawMaxTokens 500,000: tha
 })
 
 // ---- 27 ----
-t('C27 W=400k: thresholds 300k, 350k, 400k each deliver exactly once however many tool calls follow', async ($, on) => {
+t('C27 W=400k (F41.1 cadence 25k): after the first delivery 324,999 none; 325,000 one; 350,000 one; each exactly once however many tool calls follow', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 300_000)).length).toBe(1)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect(ctxs(await w.tool('Bash', { command: 'ls' })).length).toBe(0)
+  expect((await atTool(w, 324_999)).length).toBe(0)
+  expect((await atTool(w, 325_000)).length).toBe(1)
+  expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect((await atTool(w, 349_999)).length).toBe(0)
   expect((await atTool(w, 350_000)).length).toBe(1)
-  expect(ctxs(await w.tool('Read')).length).toBe(0)
-  expect((await atTool(w, 400_000)).length).toBe(1)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 
-t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102%; nothing more until 450k', async ($, on) => {
+t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102% (highest k=4); nothing more until 425k', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 290_000)).length).toBe(0)
   const c = await atTool(w, 410_000)
@@ -121,9 +123,9 @@ t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102%; noth
   expect(c[0]).toContain('102%')
   expect(c[0]).toContain('410k of 400k')
   expect(ctxs(await w.tool('Read')).length).toBe(0)
-  expect((await atTool(w, 430_000)).length).toBe(0)
-  expect((await atTool(w, 449_999)).length).toBe(0)
-  expect((await atTool(w, 450_000)).length).toBe(1)
+  expect((await atTool(w, 415_000)).length).toBe(0)
+  expect((await atTool(w, 424_999)).length).toBe(0)
+  expect((await atTool(w, 425_000)).length).toBe(1)
 })
 
 // ---- 28 ----
@@ -444,7 +446,7 @@ t('C37 atom compact.nudge: armed/lastK/next/fresh, no path or text', async ($, o
   const a2: Any = await w.state('nudge')
   expect(a2.armed).toBe(false)
   expect(a2.lastK).toBe(0)
-  expect(a2.next).toBe(350_000)
+  expect(a2.next).toBe(325_000) // F41.1: 25k cadence
   for (const a of [a0, a1, a2]) {
     const j = JSON.stringify(a)
     expect(j).not.toContain('/')

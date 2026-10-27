@@ -504,6 +504,7 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
       return { value: fn(e) }
     })
   opA('fs.exists', e => {
+    if (S.failOps.has('fs.exists')) throw new Error('exists down')
     const p: string = e.path
     if (S.files.has(p)) return true
     if (S.inRepo && p === `${REPO}/.git`) return true
@@ -527,8 +528,9 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
   opA('fs.write', e => {
     if (S.failOps.has('fs.write')) throw new Error('write down')
     S.writes.push({ path: e.path, text: e.text })
-    S.files.set(e.path, e.text)
+    S.files.set(e.path, e.append ? (S.files.get(e.path) ?? '') + e.text : e.text)
   })
+  // F41.4 rotation: the plugin may use `mv` via process.run (handled below) or read+write; no rename op exists in the kit
   op(on, 'process.run', e => {
     const a: string[] = [...e.argv]
     if (a[0] === 'git' && a.includes('--show-toplevel')) {
@@ -536,6 +538,11 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     }
     if (a[0] === 'printenv' || a.join(' ').includes('$HOME')) return proc(`${HOME}\n`)
     if (a[0] === 'git') return proc('')
+    if (a[0] === 'mv' && a.length >= 3 && S.files.has(a[a.length - 2])) {
+      S.files.set(a[a.length - 1], S.files.get(a[a.length - 2]) as string)
+      S.files.delete(a[a.length - 2])
+      return proc('')
+    }
     return proc('', 127, 'not found')
   })
 
@@ -775,7 +782,9 @@ async function atTool(w: W, t: number, inner?: Any): Promise<string[]> {
   return ctxs(await w.tool('Read', { file_path: '/work/repo/a.ts' }, { inner }))
 }
 const metaWrites = (w: W) => w.S.writes.filter(x => x.path === META)
-const handoffDirWrites = (w: W) => w.S.writes.filter(x => x.path.startsWith(`${HOME}/.local/state/claude-handoffs/`))
+// F41.4: the nudge debug log lives in the same dir; it is not a handoff file (C34/C33/C62 predate it)
+const handoffDirWrites = (w: W) =>
+  w.S.writes.filter(x => x.path.startsWith(`${HOME}/.local/state/claude-handoffs/`) && !x.path.includes('/nudge-debug'))
 /** The model writes the agent file: a main-loop Write tool call plus the file landing on disk. */
 async function writeAgent(w: W, body = BIG, tool = 'Write'): Promise<void> {
   w.S.files.set(AGENT, body)
@@ -784,6 +793,7 @@ async function writeAgent(w: W, body = BIG, tool = 'Write'): Promise<void> {
 
 // ---------------- tests ----------------
 // Statements 25-40: F33 handoff nudge (spec compact.md F33.8). Statements 41-46 are in 34-resume-agent.
+// F41 (statement 86): the default cadence is 25,000 (was 50,000); C27 and C37 assert the 25k steps.
 // W = 400,000 is pinned through env CLAUDE_CODE_AUTO_COMPACT_WINDOW unless a test says otherwise.
 
 // ---- 25 ----
@@ -885,20 +895,21 @@ t('C26 (F33.2 rule 2) no env, unknown model, breakdown rawMaxTokens 500,000: tha
 })
 
 // ---- 27 ----
-t('C27 W=400k: thresholds 300k, 350k, 400k each deliver exactly once however many tool calls follow', async ($, on) => {
+t('C27 W=400k (F41.1 cadence 25k): after the first delivery 324,999 none; 325,000 one; 350,000 one; each exactly once however many tool calls follow', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 300_000)).length).toBe(1)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect(ctxs(await w.tool('Bash', { command: 'ls' })).length).toBe(0)
+  expect((await atTool(w, 324_999)).length).toBe(0)
+  expect((await atTool(w, 325_000)).length).toBe(1)
+  expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect((await atTool(w, 349_999)).length).toBe(0)
   expect((await atTool(w, 350_000)).length).toBe(1)
-  expect(ctxs(await w.tool('Read')).length).toBe(0)
-  expect((await atTool(w, 400_000)).length).toBe(1)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 
-t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102%; nothing more until 450k', async ($, on) => {
+t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102% (highest k=4); nothing more until 425k', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 290_000)).length).toBe(0)
   const c = await atTool(w, 410_000)
@@ -906,9 +917,9 @@ t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102%; noth
   expect(c[0]).toContain('102%')
   expect(c[0]).toContain('410k of 400k')
   expect(ctxs(await w.tool('Read')).length).toBe(0)
-  expect((await atTool(w, 430_000)).length).toBe(0)
-  expect((await atTool(w, 449_999)).length).toBe(0)
-  expect((await atTool(w, 450_000)).length).toBe(1)
+  expect((await atTool(w, 415_000)).length).toBe(0)
+  expect((await atTool(w, 424_999)).length).toBe(0)
+  expect((await atTool(w, 425_000)).length).toBe(1)
 })
 
 // ---- 28 ----
@@ -1229,7 +1240,7 @@ t('C37 atom compact.nudge: armed/lastK/next/fresh, no path or text', async ($, o
   const a2: Any = await w.state('nudge')
   expect(a2.armed).toBe(false)
   expect(a2.lastK).toBe(0)
-  expect(a2.next).toBe(350_000)
+  expect(a2.next).toBe(325_000) // F41.1: 25k cadence
   for (const a of [a0, a1, a2]) {
     const j = JSON.stringify(a)
     expect(j).not.toContain('/')

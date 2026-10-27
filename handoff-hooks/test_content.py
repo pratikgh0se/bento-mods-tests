@@ -71,7 +71,9 @@ class Content(HookCase):
 
     def test_ac21_noise_filtered(self):
         noise = ["<task-notification x", "[SYSTEM NOTIFICATION y", "<system-reminder z", "<command-name q",
-                 "<local-command r", "<command-message s", "Caveat: c", "This session is being continued x"]
+                 "<local-command r", "<command-message s", "Caveat: c", "This session is being continued x",
+                 "<artifact-content-authored-by-others/> x", "<bash-input>ls", "<bash-stdout>o", "<bash-stderr>e",
+                 "<local-command-stdout>l"]  # F40.3 adds the last five
         e = [user(n + " NOISE%d" % i) for i, n in enumerate(noise)]
         e.append(user("meta text", isMeta=True))
         e.append({"type": "user", "message": {"content": [{"type": "tool_result", "content": "TOOLRES"}]}})
