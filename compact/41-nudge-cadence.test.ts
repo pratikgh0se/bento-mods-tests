@@ -1134,8 +1134,9 @@ t('C85 a pre-existing 1,000,001-byte file is rotated to nudge-debug.1.jsonl (rep
   w.S.files.set(DBG1, 'old rotated content')
   await w.measureAt(300_000) // exactly one event: arm
   await w.clock.settle()
-  expect(w.S.files.get(DBG1)).toBe(big)
+  expect(w.S.files.get(DBG1) === big).toBe(true) // boolean: a failing 1 MB string diff would crash the reporter
   const txt = w.S.files.get(DBG) ?? ''
+  expect(txt.length).toBeLessThan(5000)
   const lines = txt.split('\n').filter(l => l.trim() !== '')
   expect(lines.length).toBe(1)
   expect(JSON.parse(lines[0]).ev).toBe('arm')
