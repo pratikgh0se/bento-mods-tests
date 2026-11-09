@@ -9,11 +9,13 @@ import test_f35 as f35
 SYSTEM = ("You write handoff notes for an AI coding agent that will resume this session after its context is "
           "compacted. Output only the note.")
 PROMPT = ("The conversation since the last compaction is on stdin. Write the handoff with exactly these headings: "
-          "## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. Describe the "
+          "## Goal, ## Parallel work running, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. "
+          "Under Parallel work running list every background agent, subagent, builder or long-running job that is running "
+          "or queued (name, task, branch or id, state), or \"none\". Describe the "
           "state at the END of the conversation, including the user's latest request and any rules they set (what "
           "needs their approval, what not to touch). Under Done list only work confirmed by a tool result; put "
           "anything started but unconfirmed under In progress prefixed \"unverified:\". Keep it under 3500 chars. "
-          "Use real paths, commands and ids; no secrets.")  # F39.7 (F38.3 text amended)
+          "Use real paths, commands and ids; no secrets.")  # F39.7 (F38.3 text amended); AMENDED by F43.7: seven headings + the generic Parallel work running sentence
 
 
 def expected_argv(model="sonnet"):

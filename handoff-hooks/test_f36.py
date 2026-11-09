@@ -7,7 +7,7 @@ import test_f35 as f35
 from test_content import git
 
 KEYS = ["ts", "sid", "trigger", "agent_file", "stale_sections", "fallback", "summary_model", "ledger", "ledger_active",
-        "ledger_superseded", "ledger_restored", "ledger_chars", "ledger_error", "duration_ms",
+        "ledger_superseded", "ledger_resolved", "ledger_restored", "ledger_chars", "ledger_error", "duration_ms",
         "output_chars", "truncated", "errors", "status", "hook_version", "canary_child"]
 # F37.4 adds `inline_cut` (bool); its position is not specified: tests require KEYS in order plus inline_cut anywhere.
 KEYS37 = set(KEYS) | {"inline_cut"}
@@ -223,7 +223,8 @@ class HealthLog(F36):
                 shutil.rmtree(self.hd, ignore_errors=True)
                 self.fresh_agent()
                 self.run_ok(extra=fault(name))
-                self.assertEqual(self.health()["status"], "degraded", name)
+                # AMENDED by F42.6: an exception in main (the `toplevel` fault) now ends with health status "error"
+                self.assertEqual(self.health()["status"], "error" if name == "toplevel" else "degraded", name)
 
     def test_ac51_trigger_passthrough(self):
         for trig, want in (("auto", "auto"), ("manual", "manual"), ("weird", "unknown"), (None, "unknown"), (5, "unknown")):
@@ -519,10 +520,7 @@ class FailSafe(F36):
         self.assertEqual(open(self.stamped(), "rb").read(), open(os.path.join(self.hd, "S-latest.md"), "rb").read())
         h = self.health()
         self.assertEqual(h["errors"], ["toplevel"])
-        self.assertEqual(h["status"], "degraded")
-        s = self.sidecar()
-        self.assertIs(s["degraded"], True)
-        self.assertIn("section_errors", s["reasons"])
+        self.assertEqual(h["status"], "error")  # AMENDED by F42.6 (was "degraded"); sidecar degraded/reasons no longer asserted
 
     def test_ac59_toplevel_non_repo_and_missing_cwd(self):
         for cwd in (self.tmp, os.path.join(self.tmp, "does-not-exist")):
@@ -690,7 +688,8 @@ class Inject(F36):
     def test_ac64_no_sid_no_dir_no_files(self):
         r = self.run_post(raw="garbage")
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
-        self.assertFalse(os.path.exists(self.hd) and os.listdir(self.hd))
+        # AMENDED by F42.6: the catch-all may append the error trace; nothing else may be created
+        self.assertFalse(os.path.exists(self.hd) and set(os.listdir(self.hd)) - {"hooks-error.jsonl"})
 
     # AC 65 end to end
     def test_ac65_reduced_then_inject_is_plain(self):

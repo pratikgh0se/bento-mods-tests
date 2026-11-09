@@ -5,14 +5,14 @@ F38 amendments: the Haiku section/line/argv/skip-when-fresh ACs are now the F38 
 import calendar, hashlib, json, os, re, time, unittest
 from helpers import *
 
-HEAD6 = ["Goal", "Decisions and why", "Done", "In progress", "Dead ends", "Exact next step"]
-IP, NS = "In progress", "Exact next step"
+HEAD6 = ["Goal", "Parallel work running", "Decisions and why", "Done", "In progress", "Dead ends", "Exact next step"]
+PW, IP, NS = "Parallel work running", "In progress", "Exact next step"  # AMENDED F43.7: STALE_TARGETS = PW, IP, NS
 NUDGE_T = "2026-10-16 10:32:00Z"
 NUDGE_MS = calendar.timegm((2026, 10, 16, 10, 32, 0)) * 1000
 
 
 def doc(o=None, omit=(), pad=0):
-    base = {"Goal": "Ship F35.", "Decisions and why": "Hash section bodies.", "Done": "Spec approved.",
+    base = {"Goal": "Ship F35.", "Parallel work running": "none.", "Decisions and why": "Hash section bodies.", "Done": "Spec approved.",
             "In progress": "Writing tests.", "Dead ends": "mtime only.", "Exact next step": "Run the suite."}
     base.update(o or {})
     out = ""
@@ -154,7 +154,7 @@ class Staleness(F35):
         self.assertIn(AGENT_H, t)
 
     def _stale_meta(self, **kw):
-        m = {"agentWrittenAt": NUDGE_MS, "lastNudgeAt": NUDGE_MS, "stale_sections": [IP, NS]}
+        m = {"agentWrittenAt": NUDGE_MS, "lastNudgeAt": NUDGE_MS, "stale_sections": [PW, IP, NS]}
         m.update(kw)
         return m
 
@@ -163,7 +163,7 @@ class Staleness(F35):
         self.put_agent(self.body400, meta=self._stale_meta())
         self.write_transcript([user("hello"), asst("ok")])
         t = self.run_and_read(fallback="1")
-        w = WARN_PFX + "In progress, Exact next step unchanged since " + NUDGE_T
+        w = WARN_PFX + "Parallel work running, In progress, Exact next step unchanged since " + NUDGE_T
         pos = [t.index(x) for x in (w, AGENT_H, self.body400.strip(), SUMMARY_H, "HAIKU-TEXT", FACTS_H)]
         self.assertEqual(pos, sorted(pos))
         self.assertEqual(len(set(pos)), 6)
@@ -227,7 +227,7 @@ class Staleness(F35):
         m = float(int(self.put_agent(self.body400, meta=self._stale_meta(), age_min=1)))
         os.utime(os.path.join(self.hd, "S-agent.md"), (m, m))
         t = self.text_with([user("late", timestamp=iso(m + 11 * 60)), asst("ok")])
-        a = "In progress, Exact next step unchanged since " + NUDGE_T
+        a = "Parallel work running, In progress, Exact next step unchanged since " + NUDGE_T
         b = "file written %s is older than the last user message by more than 10 min" % utc(m)
         self.assertEqual(warn_line(t), WARN_PFX + a + "; " + b)
         self.assertEqual(len([l for l in t.split("\n") if l.startswith(WARN_PFX)]), 1)
@@ -239,20 +239,20 @@ class Staleness(F35):
         self.assertIsNone(warn_line(t))
 
     def test_ac37_stale_meta_without_lastNudgeAt_uses_file_mtime(self):
-        m = float(int(self.put_agent(self.body400, meta={"agentWrittenAt": 100, "stale_sections": [IP, NS]}, age_min=1)))
+        m = float(int(self.put_agent(self.body400, meta={"agentWrittenAt": 100, "stale_sections": [PW, IP, NS]}, age_min=1)))
         os.utime(os.path.join(self.hd, "S-agent.md"), (m, m))
         t = self.text_with([user("hello"), asst("ok")])
         # section 4: agentWrittenAt present, lastNudgeAt absent -> rule is the existing one; reason (a) must still be named
         w = warn_line(t)
         self.assertIsNotNone(w)
-        self.assertIn("In progress, Exact next step unchanged since " + utc(m), w)
+        self.assertIn("Parallel work running, In progress, Exact next step unchanged since " + utc(m), w)
 
     # ---- hookStale (AC 38)
     def _hook_stale_world(self, sections_ok=(True, True)):
         t0 = int(time.time()) - 3600
         text = doc({"Goal": "G" * 300})
         meta = {"agentWrittenAt": t0 * 1000, "lastNudgeAt": t0 * 1000,
-                "sections": {IP: h12(text, IP) if sections_ok[0] else "0" * 12,
+                "sections": {PW: h12(text, PW), IP: h12(text, IP) if sections_ok[0] else "0" * 12,
                              NS: h12(text, NS) if sections_ok[1] else "f" * 12}}
         self.put_agent(text, meta=meta)
         return t0
@@ -271,7 +271,7 @@ class Staleness(F35):
     def test_ac38_three_user_messages_after_nudge(self):
         t0 = self._hook_stale_world()
         t = self.text_with(self._entries_after(t0, 3, 0))
-        self.assertEqual(warn_line(t), WARN_PFX + "In progress, Exact next step unchanged since " + utc(t0))
+        self.assertEqual(warn_line(t), WARN_PFX + "Parallel work running, In progress, Exact next step unchanged since " + utc(t0))
         self.assertIn(AGENT_H, t)
 
     def test_ac38_two_users_and_39_tool_uses_no_warning(self):
@@ -283,7 +283,7 @@ class Staleness(F35):
     def test_ac38_40_tool_uses_warns(self):
         t0 = self._hook_stale_world()
         t = self.text_with(self._entries_after(t0, 0, 40))
-        self.assertEqual(warn_line(t), WARN_PFX + "In progress, Exact next step unchanged since " + utc(t0))
+        self.assertEqual(warn_line(t), WARN_PFX + "Parallel work running, In progress, Exact next step unchanged since " + utc(t0))
 
     def test_ac38_untimed_entries_not_counted(self):
         t0 = self._hook_stale_world()
@@ -299,7 +299,7 @@ class Staleness(F35):
     def test_ac38_no_sections_or_no_lastNudgeAt_is_not_hookstale(self):
         t0 = int(time.time()) - 3600
         text = doc({"Goal": "G" * 300})
-        hs = {IP: h12(text, IP), NS: h12(text, NS)}
+        hs = {PW: h12(text, PW), IP: h12(text, IP), NS: h12(text, NS)}
         self.put_agent(text, meta={"agentWrittenAt": t0 * 1000, "lastNudgeAt": t0 * 1000})  # no sections
         self.assertIsNone(warn_line(self.text_with(self._entries_after(t0, 5, 100))))
         self.put_agent(text, raw_meta=json.dumps({"agentWrittenAt": t0 * 1000, "sections": hs}))  # no lastNudgeAt
@@ -692,7 +692,7 @@ class OrderAndTrim(F35):
 
 # ---------------------------------------------------------------- Unchanged behaviour (AC 47)
 class Unchanged(F35):
-    STALE = {"agentWrittenAt": 1, "lastNudgeAt": 1, "stale_sections": [IP, NS]}
+    STALE = {"agentWrittenAt": 1, "lastNudgeAt": 1, "stale_sections": [PW, IP, NS]}
 
     def _big(self):
         e = [user(("U%02d" % i) + "u" * 700) for i in range(8)]

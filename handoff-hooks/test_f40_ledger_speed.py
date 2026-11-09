@@ -130,7 +130,7 @@ class DeltaApply(F40):
         self.assertIn('"SUPERSEDE D<old> BY D<new>: <reason>"', last)
         self.assertIn('Output "NO CHANGES" if nothing qualifies.', last)
         self.assertNotIn("Output the complete updated ledger", last)
-        self.assertTrue(last.endswith(LEAN + " " + KEEP))  # F39.10/F39.11 sentences stay, in this order
+        self.assertIn(LEAN + " " + KEEP + " ", last)  # F39.10/F39.11 sentences stay, in this order; AMENDED by F42.2: F42 sentences follow
 
 
 # ---------------------------------------------------------------- AC 118
@@ -269,7 +269,7 @@ class OwnTimeout(F40):
         i = keys.index("ledger_chars")
         self.assertEqual(keys[i + 1], "ledger_error", keys)
         j = keys.index("summary_model")
-        self.assertEqual(keys[j + 1:j + 7], LEDGER_KEYS)
+        self.assertEqual(keys[j + 1:j + 8], LEDGER_KEYS)
         self.assertEqual(keys[i + 2], "duration_ms", keys)
 
 

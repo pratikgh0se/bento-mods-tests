@@ -13,7 +13,7 @@ LEAN = ("Keep the ledger lean: when a new decision changes, narrows or repeats a
 KEEP = ("When you merge or narrow entries, keep every concrete value from both (names, numbers, paths, limits, "
         "schedules).")  # F39.11
 MERGE_SYSTEM = "You maintain a project's decisions ledger for an AI coding agent. Output only the ledger."
-MERGE_PROMPT = (
+MERGE_PROMPT_F40 = (
     "Stdin has the CURRENT LEDGER, then NEW CONVERSATION since it was last updated. Output only the changes, one per "
     "line, nothing else: new decisions as \"- D<n> [YYYY-MM-DD] <decision> | why: <reason>\" with n continuing after the "
     "highest existing id, and replacements as \"SUPERSEDE D<old> BY D<new>: <reason>\" where D<new> is an existing or "
@@ -24,7 +24,19 @@ MERGE_PROMPT = (
     "proposals. Format of active lines: \"- D<n> [YYYY-MM-DD] <decision> | why: <reason>\". Format of superseded "
     "lines: \"- D<n> [YYYY-MM-DD] SUPERSEDED by D<m> [YYYY-MM-DD]: <old decision> | because: <reason>\". "
     + LEAN + " " + KEEP)
-LEDGER_KEYS = ["ledger", "ledger_active", "ledger_superseded", "ledger_restored", "ledger_chars", "ledger_error"]  # F40.4
+# F42.2: sentences added to the F40.1 prompt (assumed appended after KEEP, single space; see SPEC-GAPS.md F42)
+F42_ADD = ('Tag each new entry [rule], [decision] or [task]. Record operating modes and the user\'s working preferences as '
+           '[rule] entries the moment the user states them (for example how many agents run in parallel, priority order, '
+           'who writes tests, how to ask the user questions), with the concrete numbers. One-off approvals and status '
+           'updates are [task]. When an active [task] is done or was a one-off already acted on, output '
+           '"RESOLVE D<n>: <reason>". When two active entries contradict each other, SUPERSEDE the older one. For untagged '
+           'existing entries you may output "KIND D<n> rule|decision|task" (at most 40).')
+# F42.1/F42.2: the two active-line formats of the F40.1 prompt gain the kind tag (observed placement, spec silent)
+MERGE_BASE42 = MERGE_PROMPT_F40.replace("[YYYY-MM-DD] <decision> | why", "[YYYY-MM-DD] [rule|decision|task] <decision> | why")
+assert MERGE_BASE42.count("[rule|decision|task]") == 2
+MERGE_PROMPT = MERGE_BASE42 + " " + F42_ADD  # AMENDED by F42.2 (was: the F40.1 prompt alone)
+# AMENDED by F42.2: ledger_resolved sits after ledger_superseded
+LEDGER_KEYS = ["ledger", "ledger_active", "ledger_superseded", "ledger_resolved", "ledger_restored", "ledger_chars", "ledger_error"]
 SUMMARY_PROMPT_BITS = ('prefixed "unverified:"', "under 3500 chars")
 STANDING = "STANDING DECISIONS (do not contradict"
 SUMMARY_TEXT = "SUMMARY-F39 " + "s" * 288
@@ -846,8 +858,9 @@ class Backups(F39):
 
 # ---------------------------------------------------------------- AC 106
 class InjectLedger(F39):
-    HEAD_RE = re.compile(r"^Project decisions from earlier sessions in this repo \(newest first; full ledger: (/.+decisions\.md)\)\. "
-                         r"Treat them as standing unless the user says otherwise:$")
+    # AMENDED by F42.3: plain `--ledger` behaves as `--part 1`, so its head is the part-1 head (F39.10 head text; the
+    # F39.8 "from earlier sessions ... (newest first ..." startup head is gone). Wording after `Standing` is not pinned.
+    HEAD_RE = re.compile(r"^Project decisions for this repo \(part 1 of the ledger;.*full ledger: (/.+decisions\.md)\)")
 
     def inject(self, cwd=None, payload=None, extra=None):
         r = self.run_post(payload or {"cwd": cwd or self.cwd, "session_id": "N", "hook_event_name": "SessionStart",
@@ -896,15 +909,15 @@ class InjectLedger(F39):
         self.assertEqual((r.returncode, r.stdout.strip()), (0, ""))
 
     def test_ac106_same_4000_char_cut_as_the_handoff(self):
+        # AMENDED by F42.3 (supersedes F39.8's 4,000-char startup cut): plain `--ledger` is `--part 1`, up to 10,000 chars.
         seed = [ledger_line(n, 200) for n in range(1, 61)]
         self.seed(seed)
         out = self.inject()
-        body = out.rstrip("\n").split("\n")[1:]
-        entries, trailer = body[:-1], body[-1]
-        self.assertTrue(TRAILER_RE.match(trailer), trailer)
-        self.assertEqual(entries, list(reversed(seed))[:len(entries)])
-        self.assertLessEqual(sum(len(l) for l in entries), 4000)
-        self.assertEqual(int(TRAILER_RE.match(trailer).group(1)), 60 - len(entries))
+        pl = {"cwd": self.cwd, "session_id": "N", "hook_event_name": "SessionStart", "source": "startup"}
+        self.assertEqual(self.run_post(pl, args=("--ledger",)).stdout, self.run_post(pl, args=("--ledger", "--part", "1")).stdout)
+        self.assertLess(len(out), 10000)
+        self.assertGreater(len(out), 4500)  # not the old 4,000-char cut
+        self.assertFalse([l for l in out.split("\n") if TRAILER_RE.match(l)])  # no F39.4 trailer any more
 
     def test_ac106_reads_never_writes(self):
         d, _ = self.seed(Layout.SEED)
@@ -953,7 +966,7 @@ class Health(F39):
         self.go()
         keys = list(self.health().keys())
         i = keys.index("summary_model")
-        self.assertEqual(keys[i + 1:i + 7], LEDGER_KEYS, keys)
+        self.assertEqual(keys[i + 1:i + 8], LEDGER_KEYS, keys)
         h = self.health()
         self.assertIsInstance(h["ledger"], str)
         for k in ("ledger_active", "ledger_superseded", "ledger_restored"):
@@ -979,7 +992,7 @@ class Health(F39):
             self.assertEqual(h["ledger"], want)
             keys = list(h.keys())
             i = keys.index("summary_model")
-            self.assertEqual(keys[i + 1:i + 7], LEDGER_KEYS)
+            self.assertEqual(keys[i + 1:i + 8], LEDGER_KEYS)
         self.seed(SEED3)
         self.set_shim("merge", rc=1)
         self.go()
@@ -1048,25 +1061,20 @@ class CompactParts(InjectLedger):
         return out
 
     def test_ac111_120_entries_two_parts_no_gaps_or_repeats(self):
+        # AMENDED by F42.3 (replaces the F39.10 newest-first two-part selection): 120 untagged 180-char entries are all
+        # decisions, so the full-text run is still newest first; the rest are index lines (F42 ACs 128-130 in test_f42).
         seed = [ledger_line(n, 180) for n in range(1, 121)]
         d, _ = self.seed(seed)
-        outs = [self.part(1), self.part(2)]
+        outs = [self.part(1), self.part(2), self.part(3)]
         shown = []
         for k, o in enumerate(outs, 1):
             self.assertLess(len(o), 10000, k)
             lines = o.rstrip("\n").split("\n")
-            m = re.match(self.HEAD_K % k, lines[0])
-            self.assertIsNotNone(m, lines[0])
-            self.assertEqual(os.path.realpath(m.group(1)), os.path.realpath(os.path.join(d, "decisions.md")))
-            shown += [l for l in lines[1:] if l.startswith("- D")]
-        self.assertEqual(shown, list(reversed(seed))[:len(shown)])  # newest first, contiguous, no repeats
-        self.assertGreater(len(shown), 90)
-        last = outs[1].rstrip("\n").split("\n")[-1]
-        m = TRAILER2_RE.match(last)
-        self.assertIsNotNone(m, last)
-        self.assertEqual(int(m.group(1)), 120 - len(shown))
-        self.assertGreater(int(m.group(1)), 0)
-        self.assertFalse([l for l in outs[0].split("\n") if TRAILER2_RE.match(l)])  # trailer only after part 2
+            m = re.match(self.HEAD_K % k, lines[0]) if o.strip() else None
+            self.assertTrue(o.strip() == "" or re.match(r"^Project decisions for this repo \(part %d of the ledger;" % k, lines[0]), lines[0])
+            shown += [l for l in lines[1:] if re.match(r"^- D\d+ \[\d{4}-", l)]
+        self.assertEqual(shown, list(reversed(seed))[:len(shown)])  # full text: newest first, contiguous, no repeats
+        self.assertGreater(len(shown), 60)
         self.assertFalse(self.shim_invoked())
         self.assertEqual(self.merge_calls(), 0)
 
@@ -1084,11 +1092,12 @@ class CompactParts(InjectLedger):
         self.assertEqual((self.part(1).strip(), self.part(2).strip()), ("", ""))
 
     def test_ac111_without_part_keeps_the_4000_form(self):
+        # AMENDED by F42.3: plain `--ledger` no longer cuts at 4,000 chars; it equals `--part 1`
         seed = [ledger_line(n, 200) for n in range(1, 61)]
         self.seed(seed)
         out = self.inject()
-        self.assertTrue(TRAILER_RE.match(out.rstrip("\n").split("\n")[-1]))
-        self.assertLess(len(out), 4500)
+        self.assertEqual(out, self.part(1))
+        self.assertGreater(len(out), 4500)
 
     def test_ac111_reads_the_ledger_written_by_the_precompact_run(self):
         self.go()
@@ -1099,16 +1108,18 @@ class CompactParts(InjectLedger):
 class LeanPromptAndTemplate(F39):
     def test_ac116_merge_prompt_ends_with_keep_values_sentence(self):
         self.go()
-        self.assertTrue(self.merge_argv()[-1].endswith(KEEP))
-        self.assertLess(self.merge_argv()[-1].index(LEAN), self.merge_argv()[-1].index(KEEP))
+        # AMENDED by F42.2: the F42 sentences now follow the keep-values sentence
+        last = self.merge_argv()[-1]
+        self.assertTrue(last.endswith(KEEP + " " + F42_ADD))
+        self.assertLess(last.index(LEAN), last.index(KEEP))
 
     def test_ac113_merge_prompt_ends_with_lean_sentences(self):
         self.go()
         last = self.merge_argv()[-1]
         self.assertEqual(last, MERGE_PROMPT)
         self.assertIn(LEAN, last)  # F39.10 sentences; F39.11 appends one more after them (AC 116)
-        self.assertTrue(last.endswith(LEAN + " " + KEEP))
-        self.assertTrue(last.endswith(KEEP))
+        self.assertIn(LEAN + " " + KEEP, last)  # AMENDED by F42.2: no longer the very end
+        self.assertTrue(last.endswith(F42_ADD))
         self.assertIn("Format of superseded lines", last)
 
     def test_ac114_template_compact_and_start_groups(self):
@@ -1117,14 +1128,15 @@ class LeanPromptAndTemplate(F39):
         for k in (1, 2, 3):
             self.assertTrue(any(re.search(r"postcompact-inject\.py\s+--part[ =]%d(\s|$)" % k, c) and "--ledger" not in c
                                 for c in compact), (k, compact))
-        for k in (1, 2):
+        for k in (1, 2, 3):  # AMENDED by F42.3: ledger parts 1-3 (was 1-2)
             self.assertTrue(any(re.search(r"postcompact-inject\.py\s+--ledger\s+--part[ =]%d(\s|$)" % k, c)
                                 or re.search(r"postcompact-inject\.py\s+--part[ =]%d\s+--ledger(\s|$)" % k, c)
                                 for c in compact), (k, compact))
         for m in ("startup", "resume"):
             cmds = [c for matcher, cs in groups if m in matcher.split("|") for c in cs]
-            self.assertTrue(any(re.search(r"postcompact-inject\.py\s+--ledger(\s|$)", c) and "--part" not in c
-                                for c in cmds), (m, groups))
+            # AMENDED by F42.3: startup/resume get ledger parts 1-3 instead of the single 4,000-char `--ledger`
+            self.assertFalse(any(re.search(r"postcompact-inject\.py\s+--ledger(\s|$)", c) and "--part" not in c
+                                 for c in cmds), (m, groups))
 
 
 if __name__ == "__main__":
