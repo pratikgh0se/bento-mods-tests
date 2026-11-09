@@ -773,7 +773,7 @@ type W = Awaited<ReturnType<typeof world>>
 const SID = 'sess-1'
 const AGENT = `${HOME}/.local/state/claude-handoffs/${SID}-agent.md`
 const META = `${HOME}/.local/state/claude-handoffs/${SID}-agent.meta.json`
-const H6 = ['## Goal', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
+const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
 const ENV400 = { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '400000' }
 const BIG = 'x'.repeat(400) // an agent file of >= 300 bytes
 const AGENT_ENTRY = `Context was compacted. Read ${AGENT} first (your own handoff), then continue from its "Exact next step". Check its "In progress" and "Dead ends" before acting.`
@@ -808,6 +808,7 @@ async function writeAgent(w: W, body = BIG, tool = 'Write'): Promise<void> {
 const IMM = ' Compaction is imminent.'
 const STANDING_F43 =
   "Under ## Decisions and why, list first the user's standing rules and operating mode (e.g. how many agents run in parallel, priorities, who writes tests, how to ask the user), with concrete numbers."
+const PARALLEL_F43 = 'Under Parallel work running list every background agent, subagent, builder or long-running job that is running or queued (name, task, branch or id, state), or "none".'
 const DBG43 = `${HOME}/.local/state/claude-handoffs/nudge-debug.jsonl`
 /** world with a usage() breakdown carrying autoCompactThreshold ac (null: breakdown without the field), session started and idle 11 s (so a 10 s throttle is open) */
 async function cworld($: Any, on: Any, ac: number | null = 367_000, over: Partial<Cfg> = {}) {
@@ -1108,7 +1109,8 @@ t('C92 nudge text contains the standing-rules sentence exactly once, right after
   const iHead = c[0].indexOf('## Exact next step.')
   expect(iHead).toBeGreaterThan(0)
   expect(c[0].indexOf(' ' + STANDING_F43)).toBe(iHead + '## Exact next step.'.length)
-  expect(c[0].indexOf('REWRITE')).toBeGreaterThan(c[0].indexOf(STANDING_F43))
+  expect(c[0].split(PARALLEL_F43).length - 1).toBe(1) // F43.7
+  expect(c[0].toLowerCase().indexOf('rewrite')).toBeGreaterThan(c[0].indexOf(STANDING_F43))
 })
 
 t('C92 the final nudge carries the sentence exactly once as well', async ($, on) => {
@@ -1122,7 +1124,7 @@ t('C92 the final nudge carries the sentence exactly once as well', async ($, on)
   expect(f[0].split(STANDING_F43).length - 1).toBe(1)
 })
 
-t('C92 full text <= 760 chars with a 120-char agent path (normal and final form)', async ($, on) => {
+t('C92 full text <= 1000 chars with a 120-char agent path (normal and final form)', async ($, on) => {
   const w = await cworld($, on, 367_000)
   const base = `${HOME}/.local/state/claude-handoffs/`
   const sid = 's'.repeat(120 - base.length - '-agent.md'.length)
@@ -1132,12 +1134,12 @@ t('C92 full text <= 760 chars with a 120-char agent path (normal and final form)
   const m = c[0].match(/(\/\S+-agent\.md)/)
   expect(m).not.toBeNull()
   expect(m![1].length).toBe(120) // precondition: the path really is 120 chars (the plugin builds it from session.id)
-  expect(c[0].length).toBeLessThanOrEqual(760)
+  expect(c[0].length).toBeLessThanOrEqual(1000)
   await atTool(w, 325_000)
   await atTool(w, 350_000)
   const f = await atTool(w, 355_000)
   expect(f.length).toBe(1)
-  expect(f[0].length).toBeLessThanOrEqual(760)
+  expect(f[0].length).toBeLessThanOrEqual(1000)
 })
 
 // ---- 93 ----

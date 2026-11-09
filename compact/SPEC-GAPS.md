@@ -33,3 +33,11 @@
 12. Statement 93: the `skip` line is asserted to be written on subagent `tool.call`s (the old tests only produced skips through subagent `session.measure`). F43.4 says "once per distinct reason per cycle"; the existing C85 tests (measure path, once) are unchanged and still apply; the cycle reset used is `session.compact` (manual).
 13. Statement 86's amendment text ("jump 290k->410k ... highest k=4; then nothing until 425k") is superseded by F43.1: the jump now delivers one entry (the final, 102%, imminent) and nothing at 425k either. The spec should restate statement 86 / 27.
 14. F41 C84 and F33 C38 "no $ call besides clock.after/clock.now" are amended to also allow `session.usage` on main-loop calls (F43.2); the subagent form of C38 stays strict.
+
+## F43.7 (seven headings)
+
+15. The exact nudge prose is no longer pinned: F43.7 gives the headings, the standing and parallel sentences, the REWRITE sentence "naming the three stale targets" and the 1,000 cap, but not the full text. C52/C53 now check structure only (header regex, `<verb> <path>`, seven headings in order, both sentences exactly once and after `## Exact next step`, case-insensitive `rewrite` and `never append` with the three targets after it, `5000`). The old DROP sentence, "Move finished items to Done" and the template equality are removed. The spec should give the template if exact equality is wanted.
+16. The STALE sentence text is unspecified (old wording named two targets). C53 asserts `STALE` followed later by all three target names, nothing more.
+17. Stale semantics with three targets: assumed "stale unless all three targets changed" (one-of-three changes still stale, matching the old both-targets rule). Tests that rewrote both targets now also rewrite `Parallel work running`. The order of `stale_sections` is asserted as [Parallel work running, In progress, Exact next step] (the spec's listing order).
+18. Meta `sections` now has seven keys (C47/C48); a six-heading note giving `absent` for the new key is not tested here.
+19. Final-nudge header (`Compaction is imminent.` right after the `)` of the header, C80/C81) is assumed unchanged by F43.7; the live template observed in earlier runs may differ.

@@ -55,12 +55,12 @@ t('C80 after 350k: 354,999 none; 355,000 exactly one final nudge (regex, path, s
   expect(c[0]).toMatch(FINAL_355)
   expect(c[0]).toContain(AGENT)
   let at = -1
-  for (const h of H6) {
+  for (const h of H7) {
     const i = c[0].indexOf(h, at + 1)
     expect(i).toBeGreaterThan(at)
     at = i
   }
-  expect(c[0].length).toBeLessThanOrEqual(760) // AMENDED F43.3 cap (was 662)
+  expect(c[0].length).toBeLessThanOrEqual(1000) // AMENDED F43.7 cap (was 760, 662)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 

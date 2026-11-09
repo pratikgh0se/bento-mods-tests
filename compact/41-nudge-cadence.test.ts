@@ -773,7 +773,7 @@ type W = Awaited<ReturnType<typeof world>>
 const SID = 'sess-1'
 const AGENT = `${HOME}/.local/state/claude-handoffs/${SID}-agent.md`
 const META = `${HOME}/.local/state/claude-handoffs/${SID}-agent.meta.json`
-const H6 = ['## Goal', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
+const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
 const ENV400 = { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '400000' }
 const BIG = 'x'.repeat(400) // an agent file of >= 300 bytes
 const AGENT_ENTRY = `Context was compacted. Read ${AGENT} first (your own handoff), then continue from its "Exact next step". Check its "In progress" and "Dead ends" before acting.`
@@ -858,12 +858,12 @@ t('C80 after 350k: 354,999 none; 355,000 exactly one final nudge (regex, path, s
   expect(c[0]).toMatch(FINAL_355)
   expect(c[0]).toContain(AGENT)
   let at = -1
-  for (const h of H6) {
+  for (const h of H7) {
     const i = c[0].indexOf(h, at + 1)
     expect(i).toBeGreaterThan(at)
     at = i
   }
-  expect(c[0].length).toBeLessThanOrEqual(760) // AMENDED F43.3 cap (was 662)
+  expect(c[0].length).toBeLessThanOrEqual(1000) // AMENDED F43.7 cap (was 760, 662)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 

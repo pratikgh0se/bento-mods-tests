@@ -59,12 +59,15 @@ const NS = 'Exact next step'
 const STALE_SENTENCE =
   'Your last handoff is STALE: "In progress" and "Exact next step" are unchanged since the previous nudge; rewrite them from scratch, do not append.'
 const DROP = 'Compaction will drop your working memory.'
-const NAMES = ['Goal', 'Decisions and why', 'Done', 'In progress', 'Dead ends', 'Exact next step']
+// AMENDED F43.7: seven headings; STALE_TARGETS = Parallel work running, In progress, Exact next step
+const PW = 'Parallel work running'
+const NAMES = ['Goal', 'Parallel work running', 'Decisions and why', 'Done', 'In progress', 'Dead ends', 'Exact next step']
 
 /** An agent file with the six exact headings; o overrides a section body, omit leaves headings out. */
 function doc(o: Record<string, string> = {}, omit: string[] = []): string {
   const base: Record<string, string> = {
     'Goal': 'Ship the F35 handoff quality work for the compact plugin.',
+    'Parallel work running': 'Builder agent-1 writes the F43 tests on branch f43 (running); none queued.',
     'Decisions and why': 'Hash the section bodies so staleness is detectable.',
     'Done': 'Spec approved. Contract tests drafted for the plugin side.',
     'In progress': 'Writing the nudge staleness tests in the compact folder.',
@@ -109,7 +112,8 @@ const turns = async (w: W, n: number, text = 'small follow-up') => {
 const calls = async (w: W, n: number, agentId?: string) => {
   for (let i = 0; i < n; i++) await w.tool('Read', { file_path: '/work/repo/a.ts' }, agentId ? { agentId } : {})
 }
-const STALE_BOTH = [IP, NS]
+const STALE_BOTH = [PW, IP, NS] // AMENDED F43.7: three stale targets
+const REW = { [PW]: 'Agent builder-2 now reviewing results (running).' }
 const PENDING = `compact:pending:${SID}`
 const firstPrompt = async (w: W, text = 'first after compaction'): Promise<string[]> => ctxs(await w.submit(text))
 
@@ -165,7 +169,7 @@ t('C47 a heading missing from the file stores "absent"', async ($, on) => {
 })
 
 // ---- 48 ----
-t('C48 first nudge (300k): sections has six keys, no prevSections, stale_sections absent or [], userTurns 0, toolCalls 0', async ($, on) => {
+t('C48 first nudge (300k): sections has seven keys, no prevSections, stale_sections absent or [], userTurns 0, toolCalls 0', async ($, on) => {
   const w = await nworld($, on)
   await deliver(w, 300_000, F0)
   const m = lastMeta(w)
@@ -273,7 +277,7 @@ t('C51 both targets rewritten: not stale', async ($, on) => {
   await deliver(w, 300_000, F0)
   await turns(w, 5)
   await calls(w, 100)
-  await deliver(w, 350_000, doc({ [IP]: 'Reviewing results.', [NS]: 'Report to the orchestrator.' }))
+  await deliver(w, 350_000, doc({ ...REW, [IP]: 'Reviewing results.', [NS]: 'Report to the orchestrator.' }))
   expect(lastMeta(w).stale_sections ?? []).toEqual([])
 })
 
@@ -286,46 +290,66 @@ t('C51 "Done" gaining appended text while both targets are unchanged: still stal
 })
 
 // ---- 52 ----
-// AMENDED F43.3: the standing-rules sentence follows the headings list
+// AMENDED F43.7: the exact F35.3 template text is no longer pinned (the spec fixes headings, sentences and the cap, not the prose).
 const STANDING = "Under ## Decisions and why, list first the user's standing rules and operating mode (e.g. how many agents run in parallel, priorities, who writes tests, how to ask the user), with concrete numbers."
-function template(pct: string, tk: string, wk: string, verb: string): string {
-  return (
-    `[compact] Context is ${pct}% of the auto-compact window (${tk}k of ${wk}k). ${DROP} Now, in one Write call, ${verb} ${AGENT} (create the folder if missing) with exactly these headings: ## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. ${STANDING} REWRITE "In progress" and "Exact next step" in place for the current state; never append "DONE since" notes. Move finished items to "Done". Keep the whole file under 5000 chars. Use real paths, commands and ids; no secrets. Then continue the task.`
-  )
+const PARALLEL = 'Under Parallel work running list every background agent, subagent, builder or long-running job that is running or queued (name, task, branch or id, state), or "none".'
+const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
+function checkNormal(c: string, pct: string, tk: string, verb: string): void {
+  expect(c).toMatch(new RegExp(`^\\[compact\\] Context is ${pct}% of the auto-compact window \\(${tk}k of 400k\\)\\.`))
+  expect(c).toContain(`${verb} ${AGENT}`)
+  let at = -1
+  for (const h of H7) {
+    const i = c.indexOf(h, at + 1)
+    expect(i).toBeGreaterThan(at)
+    at = i
+  }
+  expect(c.split(STANDING).length - 1).toBe(1)
+  expect(c.split(PARALLEL).length - 1).toBe(1)
+  expect(c.indexOf(STANDING)).toBeGreaterThan(c.indexOf('## Exact next step'))
+  expect(c.indexOf(PARALLEL)).toBeGreaterThan(c.indexOf('## Exact next step'))
+  // the REWRITE sentence names the three stale targets and forbids appending
+  expect(c.toLowerCase()).toContain('rewrite')
+  expect(c.toLowerCase()).toContain('never append')
+  const rw = c.slice(c.toLowerCase().indexOf('rewrite'))
+  for (const n of [PW, IP, NS]) expect(rw).toContain(n)
+  expect(c).toContain('5000')
 }
 
-t('C52 normal nudge text equals the F35.3 template + F43.3 standing line (file present: "update"), <= 760 chars, no STALE', async ($, on) => {
+t('C52 normal nudge text (file present: "update"): header, seven headings in order, standing + parallel sentences once, REWRITE of the three targets, <= 1000 chars, no STALE', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000, F0)
-  expect(norm(c)).toBe(norm(template('75', '300', '400', 'update')))
-  expect(c.length).toBeLessThanOrEqual(760)
-  expect(c).toContain('REWRITE "In progress" and "Exact next step" in place')
-  expect(c).toContain('Move finished items to "Done"')
-  expect(c).toContain('under 5000 chars')
+  checkNormal(c, '75', '300', 'update')
+  expect(c.length).toBeLessThanOrEqual(1000)
   expect(c).not.toContain('STALE')
 })
 
 t('C52 normal nudge text with the file absent uses "write"', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000)
-  expect(norm(c)).toBe(norm(template('75', '300', '400', 'write')))
+  checkNormal(c, '75', '300', 'write')
+  expect(c.length).toBeLessThanOrEqual(1000)
   expect(c).not.toContain('STALE')
 })
 
 // ---- 53 ----
-t('C53 stale nudge: the STALE sentence follows "Compaction will drop your working memory.", rest equals the normal text, <= 970 chars (AMENDED F43: 780 + the 190-char standing line)', async ($, on) => {
+t('C53 stale nudge: contains STALE and the normal text (headings, sentences), names the stale targets, <= 1000 chars (AMENDED F43.7)', async ($, on) => {
   const w = await nworld($, on)
   await deliver(w, 300_000, F0)
   await turns(w, 3)
   const c = await deliver(w, 350_000)
-  expect(c).toContain(STALE_SENTENCE)
-  expect(c.indexOf(STALE_SENTENCE)).toBeGreaterThan(c.indexOf(DROP) + DROP.length - 1)
-  expect(c.indexOf(STALE_SENTENCE) - (c.indexOf(DROP) + DROP.length)).toBeLessThanOrEqual(2)
-  expect(c.length).toBeLessThanOrEqual(970)
-  const m = c.match(/Context is (\d+)% of the auto-compact window \((\d+)k of (\d+)k\)/)
-  expect(m).not.toBeNull()
-  const rest = norm(c.replace(STALE_SENTENCE, ''))
-  expect(rest).toBe(norm(template(m![1], m![2], m![3], 'update')))
+  expect(c).toContain('STALE')
+  const i = c.indexOf('STALE')
+  for (const n of [PW, IP, NS]) expect(c.slice(i)).toContain(n)
+  expect(c.length).toBeLessThanOrEqual(1000)
+  expect(c.split(STANDING).length - 1).toBe(1)
+  expect(c.split(PARALLEL).length - 1).toBe(1)
+  let at = -1
+  for (const h of H7) {
+    const j = c.indexOf(h, at + 1)
+    expect(j).toBeGreaterThan(at)
+    at = j
+  }
+  expect(c).toMatch(/Context is \d+% of the auto-compact window \(350k of 400k\)/)
 })
 
 t('C53 the stale nudge is delivered once per k: one entry, none on later calls', async ($, on) => {
@@ -345,7 +369,7 @@ t('C53 once the sections are rewritten the next nudge is the normal text again',
   await turns(w, 3)
   expect(await deliver(w, 350_000)).toContain('STALE')
   await turns(w, 3)
-  const c = await deliver(w, 400_000, doc({ [IP]: 'Fresh state.', [NS]: 'Fresh next step.' }))
+  const c = await deliver(w, 400_000, doc({ ...REW, [IP]: 'Fresh state.', [NS]: 'Fresh next step.' }))
   expect(c).not.toContain('STALE')
   expect(lastMeta(w).stale_sections ?? []).toEqual([])
 })
@@ -367,7 +391,7 @@ t('C54 a detected write that changes both target hashes clears stale_sections at
   const w = await nworld($, on)
   await staleWorld(w)
   await w.advance(1000)
-  await writeAgent(w, doc({ [IP]: 'Reviewing the results.', [NS]: 'Report to the orchestrator.' }))
+  await writeAgent(w, doc({ ...REW, [IP]: 'Reviewing the results.', [NS]: 'Report to the orchestrator.' }))
   await w.measureAt(355_000)
   await w.clock.settle()
   expect(lastMeta(w).stale_sections ?? []).toEqual([])
@@ -446,7 +470,7 @@ t('C56 same file after stale_sections is cleared by a rewrite of both targets: R
   const w = await nworld($, on)
   await staleWorld(w)
   await w.advance(1000)
-  await writeAgent(w, doc({ [IP]: 'Reviewing the results.', [NS]: 'Report to the orchestrator.' }))
+  await writeAgent(w, doc({ ...REW, [IP]: 'Reviewing the results.', [NS]: 'Report to the orchestrator.' }))
   await w.compact('manual')
   expect(await firstPrompt(w)).toEqual([AGENT_ENTRY])
 }, EVERY40)

@@ -773,7 +773,7 @@ type W = Awaited<ReturnType<typeof world>>
 const SID = 'sess-1'
 const AGENT = `${HOME}/.local/state/claude-handoffs/${SID}-agent.md`
 const META = `${HOME}/.local/state/claude-handoffs/${SID}-agent.meta.json`
-const H6 = ['## Goal', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
+const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
 const ENV400 = { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '400000' }
 const BIG = 'x'.repeat(400) // an agent file of >= 300 bytes
 const AGENT_ENTRY = `Context was compacted. Read ${AGENT} first (your own handoff), then continue from its "Exact next step". Check its "In progress" and "Dead ends" before acting.`

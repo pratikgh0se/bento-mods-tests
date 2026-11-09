@@ -773,7 +773,7 @@ type W = Awaited<ReturnType<typeof world>>
 const SID = 'sess-1'
 const AGENT = `${HOME}/.local/state/claude-handoffs/${SID}-agent.md`
 const META = `${HOME}/.local/state/claude-handoffs/${SID}-agent.meta.json`
-const H6 = ['## Goal', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
+const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
 const ENV400 = { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '400000' }
 const BIG = 'x'.repeat(400) // an agent file of >= 300 bytes
 const AGENT_ENTRY = `Context was compacted. Read ${AGENT} first (your own handoff), then continue from its "Exact next step". Check its "In progress" and "Dead ends" before acting.`
@@ -823,9 +823,9 @@ t('C25 t=300,000: the next main tool.call gains exactly one entry with the heade
   expect(c.length).toBe(1)
   expect(c[0]).toMatch(/^\[compact\] Context is 75% of the auto-compact window \(300k of 400k\)/)
   expect(c[0]).toContain(AGENT)
-  expect(c[0].length).toBeLessThanOrEqual(760) // F43.3 cap (F35.3 bound was 640; AMENDED F43)
+  expect(c[0].length).toBeLessThanOrEqual(1000) // F43.7 cap (was 760 F43.3, 640 F35.3)
   let at = -1
-  for (const h of H6) {
+  for (const h of H7) {
     const i = c[0].indexOf(h, at + 1)
     expect(i).toBeGreaterThan(at)
     at = i
