@@ -1096,7 +1096,6 @@ t('C51 "Done" gaining appended text while both targets are unchanged: still stal
 // AMENDED F43.7: the exact F35.3 template text is no longer pinned (the spec fixes headings, sentences and the cap, not the prose).
 const STANDING = "Under ## Decisions and why, list first the user's standing rules and operating mode (e.g. how many agents run in parallel, priorities, who writes tests, how to ask the user), with concrete numbers."
 const PARALLEL = 'Under Parallel work running list every background agent, subagent, builder or long-running job that is running or queued (name, task, branch or id, state), or "none".'
-const H7 = ['## Goal', '## Parallel work running', '## Decisions and why', '## Done', '## In progress', '## Dead ends', '## Exact next step']
 function checkNormal(c: string, pct: string, tk: string, verb: string): void {
   expect(c).toMatch(new RegExp(`^\\[compact\\] Context is ${pct}% of the auto-compact window \\(${tk}k of 400k\\)\\.`))
   expect(c).toContain(`${verb} ${AGENT}`)
