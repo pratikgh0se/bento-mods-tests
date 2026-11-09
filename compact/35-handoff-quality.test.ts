@@ -860,7 +860,7 @@ function sha256hex(str: string): string {
 const IP = 'In progress'
 const NS = 'Exact next step'
 const STALE_SENTENCE =
-  'Your last handoff is STALE: "In progress" and "Exact next step" are unchanged since the previous nudge; rewrite them from scratch, do not append.'
+  'Your last handoff is STALE: Parallel work running, In progress and Exact next step are unchanged; rewrite them.' // AMENDED F43.8
 const DROP = 'Compaction will drop your working memory.'
 // AMENDED F43.7: seven headings; STALE_TARGETS = Parallel work running, In progress, Exact next step
 const PW = 'Parallel work running'
@@ -977,7 +977,7 @@ t('C48 first nudge (300k): sections has seven keys, no prevSections, stale_secti
   await deliver(w, 300_000, F0)
   const m = lastMeta(w)
   expect(m.v).toBe(1)
-  expect(Object.keys(m.sections).length).toBe(6)
+  expect(Object.keys(m.sections).length).toBe(7)
   expect(m.prevSections).toBeUndefined()
   expect(m.stale_sections === undefined || (Array.isArray(m.stale_sections) && m.stale_sections.length === 0)).toBe(true)
   expect(m.userTurns).toBe(0)
