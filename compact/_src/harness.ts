@@ -249,6 +249,7 @@ type Cfg = {
   store: Record<string, unknown>
   env: Record<string, string>
   rawMax: number | null // breakdown.rawMaxTokens when a breakdown is present (null = WINDOW)
+  autoCompact: number | null // breakdown.autoCompactThreshold (F43.1); null = field absent. Setting it also makes a breakdown present (overhead 20,000 when overhead is null)
 }
 
 const KEPT: Any = { role: 'user', text: 'kept message', toolUses: [] }
@@ -317,6 +318,7 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     agents: [] as Any[],
     builtins: [] as string[],
     overhead: null as number | null,
+    autoCompact: null as number | null,
     engineSections: ENGINE_SECTIONS,
     settingsEnv: {} as Record<string, string>,
     compact: 'ok' as Cfg['compact'],
@@ -351,6 +353,8 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     kv,
     kvSets,
     rawMax: null as number | null,
+    usageTokens: null as number | null, // F43.2: what session.usage() reports as context.tokens when set (default: the last measured S.tokens)
+    usageCalls: [] as { at: number; breakdown: boolean }[], // every session.usage call the plugin made
     envVars: { HOME, ...(over.env ?? {}) } as Record<string, string>, // answers env.get (same as mock.env, but mutable and failable)
     failOps: new Set<string>(), // op names that reject (e.g. 'fs.write', 'fs.stat', 'session.usage')
     mtimes: new Map<string, number>(), // fs.stat mtimeMs override per path (default: clock.now())
@@ -435,8 +439,13 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
   // ---- bottom hooks: ops ----
   op(on, 'session.usage', e => {
     if (S.failOps.has('session.usage')) throw new Error('usage down')
-    const ctx: Any = { tokens: S.tokens, window: WINDOW, percent: Math.round(S.tokens / 10_000) }
-    if (e.breakdown && S.overhead !== null) ctx.breakdown = breakdownOf(S.tokens, S.overhead, S.rawMax)
+    S.usageCalls.push({ at: clock.now(), breakdown: !!e.breakdown })
+    const tk = S.usageTokens ?? S.tokens
+    const ctx: Any = { tokens: tk, window: WINDOW, percent: Math.round(tk / 10_000) }
+    if (e.breakdown && (S.overhead !== null || S.autoCompact !== null)) {
+      ctx.breakdown = breakdownOf(tk, S.overhead ?? 20_000, S.rawMax)
+      if (S.autoCompact !== null) ctx.breakdown.autoCompactThreshold = S.autoCompact
+    }
     return { startedAt: T0, context: ctx, rateLimits: [], cost: { usd: 0 } }
   })
   op(on, 'session.model', () => S.model)

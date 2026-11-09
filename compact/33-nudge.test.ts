@@ -250,6 +250,7 @@ type Cfg = {
   store: Record<string, unknown>
   env: Record<string, string>
   rawMax: number | null // breakdown.rawMaxTokens when a breakdown is present (null = WINDOW)
+  autoCompact: number | null // breakdown.autoCompactThreshold (F43.1); null = field absent. Setting it also makes a breakdown present (overhead 20,000 when overhead is null)
 }
 
 const KEPT: Any = { role: 'user', text: 'kept message', toolUses: [] }
@@ -318,6 +319,7 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     agents: [] as Any[],
     builtins: [] as string[],
     overhead: null as number | null,
+    autoCompact: null as number | null,
     engineSections: ENGINE_SECTIONS,
     settingsEnv: {} as Record<string, string>,
     compact: 'ok' as Cfg['compact'],
@@ -352,6 +354,8 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     kv,
     kvSets,
     rawMax: null as number | null,
+    usageTokens: null as number | null, // F43.2: what session.usage() reports as context.tokens when set (default: the last measured S.tokens)
+    usageCalls: [] as { at: number; breakdown: boolean }[], // every session.usage call the plugin made
     envVars: { HOME, ...(over.env ?? {}) } as Record<string, string>, // answers env.get (same as mock.env, but mutable and failable)
     failOps: new Set<string>(), // op names that reject (e.g. 'fs.write', 'fs.stat', 'session.usage')
     mtimes: new Map<string, number>(), // fs.stat mtimeMs override per path (default: clock.now())
@@ -436,8 +440,13 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
   // ---- bottom hooks: ops ----
   op(on, 'session.usage', e => {
     if (S.failOps.has('session.usage')) throw new Error('usage down')
-    const ctx: Any = { tokens: S.tokens, window: WINDOW, percent: Math.round(S.tokens / 10_000) }
-    if (e.breakdown && S.overhead !== null) ctx.breakdown = breakdownOf(S.tokens, S.overhead, S.rawMax)
+    S.usageCalls.push({ at: clock.now(), breakdown: !!e.breakdown })
+    const tk = S.usageTokens ?? S.tokens
+    const ctx: Any = { tokens: tk, window: WINDOW, percent: Math.round(tk / 10_000) }
+    if (e.breakdown && (S.overhead !== null || S.autoCompact !== null)) {
+      ctx.breakdown = breakdownOf(tk, S.overhead ?? 20_000, S.rawMax)
+      if (S.autoCompact !== null) ctx.breakdown.autoCompactThreshold = S.autoCompact
+    }
     return { startedAt: T0, context: ctx, rateLimits: [], cost: { usd: 0 } }
   })
   op(on, 'session.model', () => S.model)
@@ -814,7 +823,7 @@ t('C25 t=300,000: the next main tool.call gains exactly one entry with the heade
   expect(c.length).toBe(1)
   expect(c[0]).toMatch(/^\[compact\] Context is 75% of the auto-compact window \(300k of 400k\)/)
   expect(c[0]).toContain(AGENT)
-  expect(c[0].length).toBeLessThanOrEqual(640) // F35.3 supersedes the F33 bound of 520
+  expect(c[0].length).toBeLessThanOrEqual(760) // F43.3 cap (F35.3 bound was 640; AMENDED F43)
   let at = -1
   for (const h of H6) {
     const i = c[0].indexOf(h, at + 1)
@@ -909,17 +918,19 @@ t('C27 W=400k (F41.1 cadence 25k): after the first delivery 324,999 none; 325,00
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 
-t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102% (highest k=4); nothing more until 425k', async ($, on) => {
+// AMENDED F43 (ceiling C=367k: regular T(3)=375k and up never fire; the final at 355k covers a jump to 410k)
+t('C27 a measure jumping 290k -> 410k arms ONE nudge reporting 410k / 102% (the final, "imminent"); nothing more, not even at 425k', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 290_000)).length).toBe(0)
   const c = await atTool(w, 410_000)
   expect(c.length).toBe(1)
   expect(c[0]).toContain('102%')
   expect(c[0]).toContain('410k of 400k')
+  expect(c[0]).toContain('Compaction is imminent.')
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect((await atTool(w, 415_000)).length).toBe(0)
   expect((await atTool(w, 424_999)).length).toBe(0)
-  expect((await atTool(w, 425_000)).length).toBe(1)
+  expect((await atTool(w, 425_000)).length).toBe(0)
 })
 
 // ---- 28 ----
@@ -1075,8 +1086,10 @@ t('C33 nudge_atPercent=5 clamps to 10% (40k of 400k)', async ($, on) => {
 }, { options: { nudge_atPercent: 5 } })
 
 for (const v of [95, 96, 99]) {
+  // AMENDED F43: with the default ceiling (367k) T(0)=380k would never fire; a breakdown autoCompactThreshold of 460,000 keeps the clamp observable
   t(`C33 nudge_atPercent=${v} clamps to 95% (380k of 400k)`, async ($, on) => {
-    const w = await nworld($, on)
+    const w = await world($, on, { env: ENV400, overhead: 20_000, autoCompact: 460_000 })
+    await w.start()
     expect((await atTool(w, 379_999)).length).toBe(0)
     const c = await atTool(w, 380_000)
     expect(c.length).toBe(1)
@@ -1285,7 +1298,7 @@ for (const failing of ['env.get', 'session.usage', 'fs.stat']) {
 
 t('C38 the tool.call path makes no $ call besides clock.after (clock.now tolerated), idle / armed / agent-file Write alike', async ($, on) => {
   const w = await nworld($, on)
-  const allowed = new Set(['clock.after', 'clock.now'])
+  const allowed = new Set(['clock.after', 'clock.now', 'session.usage']) // AMENDED F43.2: one throttled session.usage on main-loop calls
   const bad = (calls: string[]) => calls.filter(c => !allowed.has(c))
   let t1 = await w.trace(() => w.tool('Read', {}, { settle: false }))
   expect(bad(t1.calls)).toEqual([])
@@ -1296,7 +1309,7 @@ t('C38 the tool.call path makes no $ call besides clock.after (clock.now tolerat
   t1 = await w.trace(() => w.tool('Write', { file_path: AGENT, content: BIG }, { settle: false }))
   expect(bad(t1.calls)).toEqual([])
   t1 = await w.trace(() => w.tool('Read', {}, { agentId: 'sub-1', settle: false }))
-  expect(bad(t1.calls)).toEqual([])
+  expect(t1.calls.filter(c => c !== 'clock.after' && c !== 'clock.now')).toEqual([]) // subagent calls: still no usage()
 })
 
 // ---- 39 ----

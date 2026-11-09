@@ -250,6 +250,7 @@ type Cfg = {
   store: Record<string, unknown>
   env: Record<string, string>
   rawMax: number | null // breakdown.rawMaxTokens when a breakdown is present (null = WINDOW)
+  autoCompact: number | null // breakdown.autoCompactThreshold (F43.1); null = field absent. Setting it also makes a breakdown present (overhead 20,000 when overhead is null)
 }
 
 const KEPT: Any = { role: 'user', text: 'kept message', toolUses: [] }
@@ -318,6 +319,7 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     agents: [] as Any[],
     builtins: [] as string[],
     overhead: null as number | null,
+    autoCompact: null as number | null,
     engineSections: ENGINE_SECTIONS,
     settingsEnv: {} as Record<string, string>,
     compact: 'ok' as Cfg['compact'],
@@ -352,6 +354,8 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
     kv,
     kvSets,
     rawMax: null as number | null,
+    usageTokens: null as number | null, // F43.2: what session.usage() reports as context.tokens when set (default: the last measured S.tokens)
+    usageCalls: [] as { at: number; breakdown: boolean }[], // every session.usage call the plugin made
     envVars: { HOME, ...(over.env ?? {}) } as Record<string, string>, // answers env.get (same as mock.env, but mutable and failable)
     failOps: new Set<string>(), // op names that reject (e.g. 'fs.write', 'fs.stat', 'session.usage')
     mtimes: new Map<string, number>(), // fs.stat mtimeMs override per path (default: clock.now())
@@ -436,8 +440,13 @@ async function world($: Any, on: Any, over: Partial<Cfg> = {}) {
   // ---- bottom hooks: ops ----
   op(on, 'session.usage', e => {
     if (S.failOps.has('session.usage')) throw new Error('usage down')
-    const ctx: Any = { tokens: S.tokens, window: WINDOW, percent: Math.round(S.tokens / 10_000) }
-    if (e.breakdown && S.overhead !== null) ctx.breakdown = breakdownOf(S.tokens, S.overhead, S.rawMax)
+    S.usageCalls.push({ at: clock.now(), breakdown: !!e.breakdown })
+    const tk = S.usageTokens ?? S.tokens
+    const ctx: Any = { tokens: tk, window: WINDOW, percent: Math.round(tk / 10_000) }
+    if (e.breakdown && (S.overhead !== null || S.autoCompact !== null)) {
+      ctx.breakdown = breakdownOf(tk, S.overhead ?? 20_000, S.rawMax)
+      if (S.autoCompact !== null) ctx.breakdown.autoCompactThreshold = S.autoCompact
+    }
     return { startedAt: T0, context: ctx, rateLimits: [], cost: { usd: 0 } }
   })
   op(on, 'session.model', () => S.model)
@@ -1080,17 +1089,19 @@ t('C51 "Done" gaining appended text while both targets are unchanged: still stal
 })
 
 // ---- 52 ----
+// AMENDED F43.3: the standing-rules sentence follows the headings list
+const STANDING = "Under ## Decisions and why, list first the user's standing rules and operating mode (e.g. how many agents run in parallel, priorities, who writes tests, how to ask the user), with concrete numbers."
 function template(pct: string, tk: string, wk: string, verb: string): string {
   return (
-    `[compact] Context is ${pct}% of the auto-compact window (${tk}k of ${wk}k). ${DROP} Now, in one Write call, ${verb} ${AGENT} (create the folder if missing) with exactly these headings: ## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. REWRITE "In progress" and "Exact next step" in place for the current state; never append "DONE since" notes. Move finished items to "Done". Keep the whole file under 5000 chars. Use real paths, commands and ids; no secrets. Then continue the task.`
+    `[compact] Context is ${pct}% of the auto-compact window (${tk}k of ${wk}k). ${DROP} Now, in one Write call, ${verb} ${AGENT} (create the folder if missing) with exactly these headings: ## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. ${STANDING} REWRITE "In progress" and "Exact next step" in place for the current state; never append "DONE since" notes. Move finished items to "Done". Keep the whole file under 5000 chars. Use real paths, commands and ids; no secrets. Then continue the task.`
   )
 }
 
-t('C52 normal nudge text equals the F35.3 template (file present: "update"), <= 640 chars, no STALE', async ($, on) => {
+t('C52 normal nudge text equals the F35.3 template + F43.3 standing line (file present: "update"), <= 760 chars, no STALE', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000, F0)
   expect(norm(c)).toBe(norm(template('75', '300', '400', 'update')))
-  expect(c.length).toBeLessThanOrEqual(640)
+  expect(c.length).toBeLessThanOrEqual(760)
   expect(c).toContain('REWRITE "In progress" and "Exact next step" in place')
   expect(c).toContain('Move finished items to "Done"')
   expect(c).toContain('under 5000 chars')
@@ -1105,7 +1116,7 @@ t('C52 normal nudge text with the file absent uses "write"', async ($, on) => {
 })
 
 // ---- 53 ----
-t('C53 stale nudge: the STALE sentence follows "Compaction will drop your working memory.", rest equals the normal text, <= 780 chars', async ($, on) => {
+t('C53 stale nudge: the STALE sentence follows "Compaction will drop your working memory.", rest equals the normal text, <= 970 chars (AMENDED F43: 780 + the 190-char standing line)', async ($, on) => {
   const w = await nworld($, on)
   await deliver(w, 300_000, F0)
   await turns(w, 3)
@@ -1113,7 +1124,7 @@ t('C53 stale nudge: the STALE sentence follows "Compaction will drop your workin
   expect(c).toContain(STALE_SENTENCE)
   expect(c.indexOf(STALE_SENTENCE)).toBeGreaterThan(c.indexOf(DROP) + DROP.length - 1)
   expect(c.indexOf(STALE_SENTENCE) - (c.indexOf(DROP) + DROP.length)).toBeLessThanOrEqual(2)
-  expect(c.length).toBeLessThanOrEqual(780)
+  expect(c.length).toBeLessThanOrEqual(970)
   const m = c.match(/Context is (\d+)% of the auto-compact window \((\d+)k of (\d+)k\)/)
   expect(m).not.toBeNull()
   const rest = norm(c.replace(STALE_SENTENCE, ''))

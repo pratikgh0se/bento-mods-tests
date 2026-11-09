@@ -286,17 +286,19 @@ t('C51 "Done" gaining appended text while both targets are unchanged: still stal
 })
 
 // ---- 52 ----
+// AMENDED F43.3: the standing-rules sentence follows the headings list
+const STANDING = "Under ## Decisions and why, list first the user's standing rules and operating mode (e.g. how many agents run in parallel, priorities, who writes tests, how to ask the user), with concrete numbers."
 function template(pct: string, tk: string, wk: string, verb: string): string {
   return (
-    `[compact] Context is ${pct}% of the auto-compact window (${tk}k of ${wk}k). ${DROP} Now, in one Write call, ${verb} ${AGENT} (create the folder if missing) with exactly these headings: ## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. REWRITE "In progress" and "Exact next step" in place for the current state; never append "DONE since" notes. Move finished items to "Done". Keep the whole file under 5000 chars. Use real paths, commands and ids; no secrets. Then continue the task.`
+    `[compact] Context is ${pct}% of the auto-compact window (${tk}k of ${wk}k). ${DROP} Now, in one Write call, ${verb} ${AGENT} (create the folder if missing) with exactly these headings: ## Goal, ## Decisions and why, ## Done, ## In progress, ## Dead ends, ## Exact next step. ${STANDING} REWRITE "In progress" and "Exact next step" in place for the current state; never append "DONE since" notes. Move finished items to "Done". Keep the whole file under 5000 chars. Use real paths, commands and ids; no secrets. Then continue the task.`
   )
 }
 
-t('C52 normal nudge text equals the F35.3 template (file present: "update"), <= 640 chars, no STALE', async ($, on) => {
+t('C52 normal nudge text equals the F35.3 template + F43.3 standing line (file present: "update"), <= 760 chars, no STALE', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000, F0)
   expect(norm(c)).toBe(norm(template('75', '300', '400', 'update')))
-  expect(c.length).toBeLessThanOrEqual(640)
+  expect(c.length).toBeLessThanOrEqual(760)
   expect(c).toContain('REWRITE "In progress" and "Exact next step" in place')
   expect(c).toContain('Move finished items to "Done"')
   expect(c).toContain('under 5000 chars')
@@ -311,7 +313,7 @@ t('C52 normal nudge text with the file absent uses "write"', async ($, on) => {
 })
 
 // ---- 53 ----
-t('C53 stale nudge: the STALE sentence follows "Compaction will drop your working memory.", rest equals the normal text, <= 780 chars', async ($, on) => {
+t('C53 stale nudge: the STALE sentence follows "Compaction will drop your working memory.", rest equals the normal text, <= 970 chars (AMENDED F43: 780 + the 190-char standing line)', async ($, on) => {
   const w = await nworld($, on)
   await deliver(w, 300_000, F0)
   await turns(w, 3)
@@ -319,7 +321,7 @@ t('C53 stale nudge: the STALE sentence follows "Compaction will drop your workin
   expect(c).toContain(STALE_SENTENCE)
   expect(c.indexOf(STALE_SENTENCE)).toBeGreaterThan(c.indexOf(DROP) + DROP.length - 1)
   expect(c.indexOf(STALE_SENTENCE) - (c.indexOf(DROP) + DROP.length)).toBeLessThanOrEqual(2)
-  expect(c.length).toBeLessThanOrEqual(780)
+  expect(c.length).toBeLessThanOrEqual(970)
   const m = c.match(/Context is (\d+)% of the auto-compact window \((\d+)k of (\d+)k\)/)
   expect(m).not.toBeNull()
   const rest = norm(c.replace(STALE_SENTENCE, ''))

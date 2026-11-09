@@ -2,7 +2,9 @@
 // W = 400,000 via env (nworld). Statement 86 amendments live in 33-nudge (C27, C37).
 
 const IMMINENT = ' Compaction is imminent.'
-const FINAL_RE = /^\[compact\] Context is 90% of the auto-compact window \(360k of 400k\)\. Compaction is imminent\./
+// AMENDED F43.1: the final is at min(360k, C-12k) = 355k (88%); FINAL_RE is generic, FINAL_355 is the exact header
+const FINAL_RE = /^\[compact\] Context is \d+% of the auto-compact window \(\d+k of 400k\)\. Compaction is imminent\./
+const FINAL_355 = /^\[compact\] Context is 88% of the auto-compact window \(355k of 400k\)\. Compaction is imminent\./
 const DBG = `${HOME}/.local/state/claude-handoffs/nudge-debug.jsonl`
 const DBG1 = `${HOME}/.local/state/claude-handoffs/nudge-debug.1.jsonl`
 
@@ -42,15 +44,15 @@ t('C79 the /coach card names the next threshold at the 25k cadence: next at 325k
 })
 
 // ---- 80 ----
-t('C80 after 350k: 359,999 none; 360,000 exactly one final nudge (regex, path, six headings in order)', async ($, on) => {
+t('C80 after 350k: 354,999 none; 355,000 exactly one final nudge (regex, path, six headings in order) [AMENDED F43: 360k -> 355k]', async ($, on) => {
   const w = await nworld($, on)
   await atTool(w, 300_000)
   await atTool(w, 325_000)
   expect((await atTool(w, 350_000)).length).toBe(1)
-  expect((await atTool(w, 359_999)).length).toBe(0)
-  const c = await atTool(w, 360_000)
+  expect((await atTool(w, 354_999)).length).toBe(0)
+  const c = await atTool(w, 355_000)
   expect(c.length).toBe(1)
-  expect(c[0]).toMatch(FINAL_RE)
+  expect(c[0]).toMatch(FINAL_355)
   expect(c[0]).toContain(AGENT)
   let at = -1
   for (const h of H6) {
@@ -58,22 +60,17 @@ t('C80 after 350k: 359,999 none; 360,000 exactly one final nudge (regex, path, s
     expect(i).toBeGreaterThan(at)
     at = i
   }
-  expect(c[0].length).toBeLessThanOrEqual(662) // F41.2 says <= 560 but F35.3's own text is already ~600 (see SPEC-GAPS F41 #1)
+  expect(c[0].length).toBeLessThanOrEqual(760) // AMENDED F43.3 cap (was 662)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 
-t('C80 t=362k..374,999 give none more; t=375,000 gives the k=3 regular nudge (no "imminent")', async ($, on) => {
+t('C80 after the final: 357k..399k give none more; in particular no 375k nudge (AMENDED F43: ceiling 367k)', async ($, on) => {
   const w = await nworld($, on)
   await atTool(w, 300_000)
   await atTool(w, 325_000)
   await atTool(w, 350_000)
-  expect((await atTool(w, 360_000)).length).toBe(1)
-  for (const n of [362_000, 368_000, 374_999]) expect((await atTool(w, n)).length).toBe(0)
-  const c = await atTool(w, 375_000)
-  expect(c.length).toBe(1)
-  expect(c[0]).toContain('375k of 400k')
-  expect(c[0]).not.toContain(IMMINENT.trim())
-  expect(c[0]).not.toMatch(FINAL_RE)
+  expect((await atTool(w, 355_000)).length).toBe(1)
+  for (const n of [357_000, 362_000, 368_000, 374_999, 375_000, 380_000, 399_999, 400_000]) expect((await atTool(w, n)).length).toBe(0)
 })
 
 t('C80 the final nudge is delivered through prompt.submit too (whichever channel comes first), once', async ($, on) => {
@@ -81,7 +78,7 @@ t('C80 the final nudge is delivered through prompt.submit too (whichever channel
   await atTool(w, 300_000)
   await atTool(w, 325_000)
   await atTool(w, 350_000)
-  await w.measureAt(360_000)
+  await w.measureAt(355_000)
   const s = await w.submit('next prompt')
   expect(ctxs(s).length).toBe(1)
   expect(ctxs(s)[0]).toMatch(FINAL_RE)
@@ -89,7 +86,7 @@ t('C80 the final nudge is delivered through prompt.submit too (whichever channel
 })
 
 // ---- 81 ----
-t('C81 a measure jumping 290k -> 365k delivers ONE nudge (k=2 text with " Compaction is imminent."); nothing until 375k', async ($, on) => {
+t('C81 a measure jumping 290k -> 365k delivers ONE nudge (k=2 text with " Compaction is imminent."); nothing after, not even at 375k [AMENDED F43]', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 290_000)).length).toBe(0)
   const c = await atTool(w, 365_000)
@@ -101,15 +98,14 @@ t('C81 a measure jumping 290k -> 365k delivers ONE nudge (k=2 text with " Compac
   expect(ctxs(await w.tool('Read')).length).toBe(0)
   expect(ctxs(await w.submit('p')).length).toBe(0)
   for (const n of [366_000, 370_000, 374_999]) expect((await atTool(w, n)).length).toBe(0)
-  const d = await atTool(w, 375_000)
-  expect(d.length).toBe(1)
-  expect(d[0]).toContain('375k of 400k')
+  expect((await atTool(w, 375_000)).length).toBe(0)
+  expect((await atTool(w, 400_000)).length).toBe(0)
 })
 
 t('C81 coincidence at the moment the final is armed with a pending regular arm: still one entry on the same tool.call', async ($, on) => {
   const w = await nworld($, on)
   await w.measureAt(300_000) // regular k=0 armed, not delivered
-  await w.measureAt(360_000) // final due as well, nothing delivered in between
+  await w.measureAt(355_000) // final due as well, nothing delivered in between
   const r = await w.tool('Read')
   expect(ctxs(r).length).toBe(1)
   expect(ctxs(r)[0]).toContain(IMMINENT)
@@ -117,33 +113,28 @@ t('C81 coincidence at the moment the final is armed with a pending regular arm: 
 })
 
 // ---- 82 ----
-t('C82 nudge_finalPercent=0: no final nudge at 360k (nor "imminent" anywhere); regular nudges continue', async ($, on) => {
+t('C82 nudge_finalPercent=0: no final nudge at 355k/360k (nor "imminent" anywhere); regular nudges 300k/325k/350k continue; none at 375k or 400k (AMENDED F43)', async ($, on) => {
   const w = await nworld($, on)
   await atTool(w, 300_000)
   await atTool(w, 325_000)
-  expect((await atTool(w, 350_000)).length).toBe(1)
+  const b = await atTool(w, 350_000)
+  expect(b.length).toBe(1)
+  expect(b[0]).not.toContain('imminent')
+  expect((await atTool(w, 355_000)).length).toBe(0)
   expect((await atTool(w, 360_000)).length).toBe(0)
-  expect((await atTool(w, 374_999)).length).toBe(0)
-  const c = await atTool(w, 375_000)
-  expect(c.length).toBe(1)
-  expect(c[0]).not.toContain('imminent')
-  const d = await atTool(w, 399_999)
-  expect(d.length).toBe(0)
-  const e = await atTool(w, 400_000)
-  expect(e.length).toBe(1)
-  expect(e[0]).not.toContain('imminent')
+  expect((await atTool(w, 375_000)).length).toBe(0)
+  expect((await atTool(w, 400_000)).length).toBe(0)
 }, { options: { nudge_finalPercent: 0 } })
 
-t('C82 nudge_finalPercent=120 clamps to 99: final at 396,000, none at 395,999 (regular steps 100k: 300k, 400k)', async ($, on) => {
+t('C82 nudge_finalPercent=120 clamps to 99 (396k) and then to C-12k: final at 355,000, none at 354,999 (AMENDED F43; regular steps 100k: only 300k)', async ($, on) => {
   const w = await nworld($, on)
   expect((await atTool(w, 300_000)).length).toBe(1)
-  expect((await atTool(w, 360_000)).length).toBe(0)
-  expect((await atTool(w, 395_999)).length).toBe(0)
-  const c = await atTool(w, 396_000)
+  expect((await atTool(w, 354_999)).length).toBe(0)
+  const c = await atTool(w, 355_000)
   expect(c.length).toBe(1)
-  expect(c[0]).toContain('396k of 400k')
-  expect(c[0]).toContain('99%')
+  expect(c[0]).toContain('355k of 400k')
   expect(c[0]).toContain(IMMINENT)
+  expect((await atTool(w, 396_000)).length).toBe(0)
 }, { options: { nudge_finalPercent: 120, nudge_everyTokens: 100_000 } })
 
 t('C82 nudge_finalPercent=10 clamps to 50: final at 200,000 (none at 199,999)', async ($, on) => {
@@ -165,17 +156,17 @@ t('C82 nudge_finalPercent=75 with default 75% start: the coinciding k=0 and fina
 }, { options: { nudge_finalPercent: 75 } })
 
 // ---- 83 ----
-t('C83 after a session.compact reset the final fires again in the next cycle at 360k', async ($, on) => {
+t('C83 after a session.compact reset the final fires again in the next cycle at 355k [AMENDED F43: 360k -> 355k]', async ($, on) => {
   const w = await nworld($, on)
-  expect((await atTool(w, 360_000)).length).toBe(1)
+  expect((await atTool(w, 355_000)).length).toBe(1)
   expect((await atTool(w, 365_000)).length).toBe(0)
   await w.compact('manual')
-  const r = await atTool(w, 359_999) // regular k=2 only
+  const r = await atTool(w, 354_999) // regular k=2 only
   expect(r.length).toBe(1)
   expect(r[0]).not.toContain('imminent')
-  const c = await atTool(w, 360_000)
+  const c = await atTool(w, 355_000)
   expect(c.length).toBe(1)
-  expect(c[0]).toMatch(FINAL_RE)
+  expect(c[0]).toMatch(FINAL_355)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 
@@ -244,13 +235,13 @@ t('C84 safety net, final due: a lost final at 361,000 is delivered by the next m
   expect(n[0]).toContain(IMMINENT)
 })
 
-t('C84 the safety net makes no $ call from tool.call besides clock.after / clock.now', async ($, on) => {
+t('C84 the safety net makes no $ call from tool.call besides clock.after / clock.now / session.usage (AMENDED F43.2)', async ($, on) => {
   const w = await nworld($, on)
   w.S.failOps.add('fs.exists')
   await w.measureAt(352_000)
   w.S.failOps.delete('fs.exists')
   const t1 = await w.trace(() => w.tool('Read', {}, { settle: false }))
-  expect(t1.calls.filter(c => c !== 'clock.after' && c !== 'clock.now')).toEqual([])
+  expect(t1.calls.filter(c => c !== 'clock.after' && c !== 'clock.now' && c !== 'session.usage')).toEqual([])
 })
 
 // ---- 85 ----
