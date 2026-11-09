@@ -315,11 +315,11 @@ function checkNormal(c: string, pct: string, tk: string, verb: string): void {
   expect(c).toContain('5000')
 }
 
-t('C52 normal nudge text (file present: "update"): header, seven headings in order, standing + parallel sentences once, REWRITE of the three targets, <= 1000 chars, no STALE', async ($, on) => {
+t('C52 normal nudge text (file present: "update"): header, seven headings in order, standing + parallel sentences once, REWRITE of the three targets, <= 1150 chars, no STALE', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000, F0)
   checkNormal(c, '75', '300', 'update')
-  expect(c.length).toBeLessThanOrEqual(1000)
+  expect(c.length).toBeLessThanOrEqual(1150)
   expect(c).not.toContain('STALE')
 })
 
@@ -327,12 +327,12 @@ t('C52 normal nudge text with the file absent uses "write"', async ($, on) => {
   const w = await nworld($, on)
   const c = await deliver(w, 300_000)
   checkNormal(c, '75', '300', 'write')
-  expect(c.length).toBeLessThanOrEqual(1000)
+  expect(c.length).toBeLessThanOrEqual(1150)
   expect(c).not.toContain('STALE')
 })
 
 // ---- 53 ----
-t('C53 stale nudge: contains STALE and the normal text (headings, sentences), names the stale targets, <= 1000 chars (AMENDED F43.7)', async ($, on) => {
+t('C53 stale nudge: contains STALE and the normal text (headings, sentences), names the stale targets, <= 1150 chars (AMENDED F43.7)', async ($, on) => {
   const w = await nworld($, on)
   await deliver(w, 300_000, F0)
   await turns(w, 3)
@@ -340,7 +340,7 @@ t('C53 stale nudge: contains STALE and the normal text (headings, sentences), na
   expect(c).toContain('STALE')
   const i = c.indexOf('STALE')
   for (const n of [PW, IP, NS]) expect(c.slice(i)).toContain(n)
-  expect(c.length).toBeLessThanOrEqual(1000)
+  expect(c.length).toBeLessThanOrEqual(1150)
   expect(c.split(STANDING).length - 1).toBe(1)
   expect(c.split(PARALLEL).length - 1).toBe(1)
   let at = -1

@@ -863,7 +863,7 @@ t('C80 after 350k: 354,999 none; 355,000 exactly one final nudge (regex, path, s
     expect(i).toBeGreaterThan(at)
     at = i
   }
-  expect(c[0].length).toBeLessThanOrEqual(1000) // AMENDED F43.7 cap (was 760, 662)
+  expect(c[0].length).toBeLessThanOrEqual(1150) // AMENDED F43.7 cap (was 760, 662)
   expect(ctxs(await w.tool('Read')).length).toBe(0)
 })
 

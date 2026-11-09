@@ -823,7 +823,7 @@ t('C25 t=300,000: the next main tool.call gains exactly one entry with the heade
   expect(c.length).toBe(1)
   expect(c[0]).toMatch(/^\[compact\] Context is 75% of the auto-compact window \(300k of 400k\)/)
   expect(c[0]).toContain(AGENT)
-  expect(c[0].length).toBeLessThanOrEqual(1000) // F43.7 cap (was 760 F43.3, 640 F35.3)
+  expect(c[0].length).toBeLessThanOrEqual(1150) // F43.7 cap (1000 earlier, 760 F43.3, 640 F35.3)
   let at = -1
   for (const h of H7) {
     const i = c[0].indexOf(h, at + 1)

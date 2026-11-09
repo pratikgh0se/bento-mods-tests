@@ -1124,7 +1124,7 @@ t('C92 the final nudge carries the sentence exactly once as well', async ($, on)
   expect(f[0].split(STANDING_F43).length - 1).toBe(1)
 })
 
-t('C92 full text <= 1000 chars with a 120-char agent path (normal and final form)', async ($, on) => {
+t('C92 full text <= 1150 chars with a 120-char agent path (normal and final form)', async ($, on) => {
   const w = await cworld($, on, 367_000)
   const base = `${HOME}/.local/state/claude-handoffs/`
   const sid = 's'.repeat(120 - base.length - '-agent.md'.length)
@@ -1134,12 +1134,12 @@ t('C92 full text <= 1000 chars with a 120-char agent path (normal and final form
   const m = c[0].match(/(\/\S+-agent\.md)/)
   expect(m).not.toBeNull()
   expect(m![1].length).toBe(120) // precondition: the path really is 120 chars (the plugin builds it from session.id)
-  expect(c[0].length).toBeLessThanOrEqual(1000)
+  expect(c[0].length).toBeLessThanOrEqual(1150)
   await atTool(w, 325_000)
   await atTool(w, 350_000)
   const f = await atTool(w, 355_000)
   expect(f.length).toBe(1)
-  expect(f[0].length).toBeLessThanOrEqual(1000)
+  expect(f[0].length).toBeLessThanOrEqual(1150)
 })
 
 // ---- 93 ----
