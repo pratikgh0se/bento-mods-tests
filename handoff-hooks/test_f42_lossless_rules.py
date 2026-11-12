@@ -684,10 +684,10 @@ class TemplateAndVersion(F42):
             self.assertTrue(any(re.search(r"postcompact-inject\.py\s+--part[ =]%d(\s|$)" % k, c) and "--ledger" not in c
                                 for c in cmds), (k, cmds))
 
-    def test_ac136_hook_version_1_6_0(self):
+    def test_ac136_hook_version_1_7_0(self):
         self.go()
-        self.assertEqual(self.health()["hook_version"], "1.6.0")
-        self.assertEqual(self.sidecar("S")["hook_version"], "1.6.0")
+        self.assertEqual(self.health()["hook_version"], "1.7.0")
+        self.assertEqual(self.sidecar("S")["hook_version"], "1.7.0")
 
     def test_ac136_health_field_order_with_resolved(self):
         self.go()

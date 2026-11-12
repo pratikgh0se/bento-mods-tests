@@ -1,4 +1,4 @@
-"""AC 137 (F42.4 amendment 2026-11-09): `--ledger-maintain <path>` input checks run first.
+"""AC 159 (F42.4 amendment 2026-11-09): `--ledger-maintain <path>` input checks run first.
 Black-box: nonexistent path / regular file -> stderr `ledger-maintain: no such directory: <path>`, exit 2, nothing created;
 existing dir without a ledger -> stdout `no ledger for <dir>`, exit 0, nothing created; existing ledger still works."""
 import os, re, subprocess, sys
@@ -27,7 +27,7 @@ class MaintainBadDir(_f42.F42):
         self.assertEqual(self.merge_calls(), 0)
         self.assertEqual(self.projects(), [])
 
-    def test_ac137_nonexistent_path(self):
+    def test_ac159_nonexistent_path(self):
         path = os.path.join(self.rt, "no", "such", "dir")
         before = self.snapshot()
         r = self.run_maintain(path)
@@ -37,14 +37,14 @@ class MaintainBadDir(_f42.F42):
         self.assert_untouched_and_uncalled(before)
         self.assertFalse(os.path.exists(path))
 
-    def test_ac137_nonexistent_path_as_given_relative(self):
+    def test_ac159_nonexistent_path_as_given_relative(self):
         before = self.snapshot()
         r = self.run_maintain("mistyped-portfolio")
         self.assertEqual(r.stderr, "ledger-maintain: no such directory: mistyped-portfolio\n")
         self.assertEqual((r.stdout, r.returncode), ("", 2))
         self.assert_untouched_and_uncalled(before)
 
-    def test_ac137_nonexistent_path_with_seeded_ledger_elsewhere(self):
+    def test_ac159_nonexistent_path_with_seeded_ledger_elsewhere(self):
         self.seed(["- D1 [2026-10-20] Never ship on Friday | why: rule"])
         path = os.path.join(self.rt, "typo")
         before = self.snapshot()
@@ -54,7 +54,7 @@ class MaintainBadDir(_f42.F42):
         self.assertEqual(self.snapshot(), before)
         self.assertFalse(self.shim_invoked())
 
-    def test_ac137_regular_file(self):
+    def test_ac159_regular_file(self):
         path = os.path.join(self.rt, "afile.txt")
         with open(path, "w") as f:
             f.write("x")
@@ -66,7 +66,7 @@ class MaintainBadDir(_f42.F42):
         self.assert_untouched_and_uncalled(before)
         self.assertEqual(open(path).read(), "x")
 
-    def test_ac137_existing_dir_without_ledger(self):
+    def test_ac159_existing_dir_without_ledger(self):
         d = os.path.join(self.rt, "fresh")
         os.makedirs(d)
         subprocess.run(["git", "init", "-q", d], check=True, capture_output=True)
@@ -76,7 +76,7 @@ class MaintainBadDir(_f42.F42):
         self.assertEqual(r.stdout.rstrip("\n"), "no ledger for %s" % d)
         self.assert_untouched_and_uncalled(before)
 
-    def test_ac137_existing_dir_without_ledger_subdir_of_repo(self):
+    def test_ac159_existing_dir_without_ledger_subdir_of_repo(self):
         # the repo of F39.setUp has no ledger seeded; key resolves to the repo root
         before = self.snapshot()
         r = self.run_maintain(self.cwd)
@@ -85,7 +85,7 @@ class MaintainBadDir(_f42.F42):
         self.assert_untouched_and_uncalled(before)
         self.assertFalse(os.path.exists(os.path.join(self.pdir(), "decisions.lock")))
 
-    def test_ac137_no_ledger_folder_present_but_no_decisions_md(self):
+    def test_ac159_no_ledger_folder_present_but_no_decisions_md(self):
         # a project folder without decisions.md counts as no ledger and is left as found (no lock created)
         os.makedirs(self.pdir())
         before = self.snapshot()
@@ -95,7 +95,7 @@ class MaintainBadDir(_f42.F42):
         self.assertEqual(self.snapshot(), before)
         self.assertFalse(self.shim_invoked())
 
-    def test_ac137_existing_ledger_still_works(self):
+    def test_ac159_existing_ledger_still_works(self):
         self.seed(["- D1 [2026-10-20] Never ship on Friday | why: rule", "- D2 [2026-10-21] Approve release 1.2 | why: ok"])
         self.set_shim("merge", out="RESOLVE D2: done\n")
         self.set_shim("summary", out="RESOLVE D2: done\n")
