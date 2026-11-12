@@ -12,6 +12,7 @@ NOGIT = [h for h in SECTIONS if h != '## Git']  # these cwds are not git repos
 
 
 class Content(HookCase):
+    @no_recall
     def test_ac18_header_and_footer(self):
         self.write_transcript([user("x")])
         t = self.run_and_read(cwd=self.tmp)

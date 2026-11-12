@@ -5,6 +5,47 @@ HOOKS_DIR = (os.environ.get("HANDOFF_HOOKS_DIR") or os.environ.get("HOOKS_DIR")
              or os.path.expanduser("~/CodeBase/machine-setup/claude/hooks"))
 PRE = os.path.join(HOOKS_DIR, "precompact-handoff.py")
 POST = os.path.join(HOOKS_DIR, "postcompact-inject.py")
+
+
+def no_recall(fn):
+    """Run a test against a temp COPY of the hooks dir without recall.py (F44.11: older exact-content and budget ACs
+    describe the no-recall case). Patches PRE/POST in helpers and in the test's own module for the test's duration."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        tmp = tempfile.mkdtemp(prefix="hooks-norecall-")
+        try:
+            for n in os.listdir(HOOKS_DIR):
+                p = os.path.join(HOOKS_DIR, n)
+                if n in ("recall.py", "__pycache__") or n.endswith(".pyc"):
+                    continue
+                if os.path.isdir(p):
+                    shutil.copytree(p, os.path.join(tmp, n), ignore=shutil.ignore_patterns("__pycache__"))
+                else:
+                    shutil.copy2(p, os.path.join(tmp, n))
+            pre, post = os.path.join(tmp, "precompact-handoff.py"), os.path.join(tmp, "postcompact-inject.py")
+            mods = [sys.modules[__name__]]
+            g = getattr(fn, "__globals__", {})
+            saved = []
+            for d in [vars(sys.modules[__name__]), g]:
+                if "PRE" in d:
+                    saved.append((d, d["PRE"], d["POST"] if "POST" in d else None))
+                    d["PRE"] = pre
+                    if "POST" in d:
+                        d["POST"] = post
+            try:
+                return fn(*a, **kw)
+            finally:
+                for d, p0, q0 in saved:
+                    d["PRE"] = p0
+                    if q0 is not None:
+                        d["POST"] = q0
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return wrapper
+
+
 CAP = 14000  # F39.6 (F37.1: 20,000; was 9,500)
 OLD_CAP37 = 20000
 OLD_CAP = 9500

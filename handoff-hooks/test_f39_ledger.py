@@ -357,8 +357,9 @@ class FirstMerge(F39):
         self.set_shim("merge", out=new + "\nSUPERSEDE D1 BY D2: " + "b" * 600 + "\n")
         self.go()
         got = [l for l in self.ledger_lines() if l.startswith("- D1 ")][0]
-        self.assertLessEqual(len(got), 700)
-        self.assertRegex(got, SUP_RE.pattern)
+        self.assertRegex(got, SUP_RE.pattern)  # F44.11(c): form kept, no 700-char cut, full text preserved
+        self.assertIn("b" * 600, got)
+        self.assertIn("o" * 400, got)
         self.assertEqual(self.health()["ledger_superseded"], 1)
 
 
@@ -652,6 +653,7 @@ class Layout(F39):
             "- D3 [2026-10-22] Use API v2 | why: shipped",
             "- D4 [2026-10-23] No new deps | why: size"]
 
+    @no_recall
     def test_ac101_order_header_authority_agent_summary_facts(self):
         self.fresh_agent()
         self.seed(self.SEED)
@@ -872,6 +874,7 @@ class InjectLedger(F39):
             out = json.loads(out)["hookSpecificOutput"]["additionalContext"]
         return out
 
+    @no_recall
     def test_ac106_prints_active_lines_newest_first(self):
         seed = Layout.SEED
         d, _ = self.seed(seed)
@@ -890,6 +893,7 @@ class InjectLedger(F39):
         self.assertEqual(self.inject(cwd=self.repo_root), self.inject(cwd=self.cwd))
         self.assertNotEqual(self.inject(cwd=self.cwd).strip(), "")
 
+    @no_recall
     def test_ac106_non_git_project(self):
         d = os.path.join(self.rt, "plain")
         os.makedirs(d)

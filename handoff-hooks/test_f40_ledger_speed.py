@@ -218,6 +218,7 @@ class OwnTimeout(F40):
             self.go(extra={"HANDOFF_LEDGER_TIMEOUT": v})
             self.assertEqual(self.health()["ledger"], "ok", repr(v))
 
+    @no_recall
     def test_valid_boundary_values_accepted(self):
         for v in ("1", "300"):
             self.reset_shim(out=LEDGER2)

@@ -104,6 +104,7 @@ class F37(f36.F36):
             if h not in t:
                 self.assertNotIn(DROP37[0], t)
 
+    @no_recall
     def test_ac72_old_cap_is_gone(self):
         # a file between the old 9,500 cap and the F39.6 cap (14,000) keeps every section
         t = self.run_build(self.entries(ntasks=3))
@@ -118,9 +119,11 @@ class F37(f36.F36):
         self.assertIn(AGENT_H, t)
         self.assertTrue(t.rstrip().endswith(FOOTER_FMT.format(p=self.tpath)))
 
+    @no_recall
     def test_ac73_drop_order_k1(self):
         self._check_k(self.find_k(lambda n: self.entries(ntasks=3 + n), 1, 400), 1)
 
+    @no_recall
     def test_ac73_drop_order_k3(self):
         self._check_k(self.find_k(lambda n: self.entries(ntasks=3 + n), 3, 400), 3)
 
@@ -204,6 +207,7 @@ class F37(f36.F36):
         self.assertIs(h["truncated"], True)
         self.assertNotIn(DROP37[0], self.latest())
 
+    @no_recall
     def test_ac77_health_inline_cut_prediction(self):
         for target, want_cut in ((12000, True), (5000, False)):
             with self.subTest(target=target):
