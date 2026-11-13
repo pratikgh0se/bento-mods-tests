@@ -23,15 +23,15 @@ class AutoBase(RecallBase):
         """3 git projects (A under two folders), one gone cwd, one non-git cwd. Returns the 3 toplevels."""
         self.A, self.B, self.C = (self.mkrepo(n) for n in ("alpha", "beta", "gamma"))
         os.makedirs(os.path.join(self.A, "inner"))
-        self.add_session(self.A, SID[0], self.A, "Alpha planning notes ALPHA1", day=1)
-        self.add_session(os.path.join(self.A, "inner"), SID[1], os.path.join(self.A, "inner"), "Alpha inner ALPHA2", day=2)
-        self.add_session(self.B, SID[2], self.B, "Beta budget words BETA1", day=3)
-        self.add_session(self.C, SID[3], self.C, "Gamma roadmap GAMMA1", day=4)
+        self.add_session(self.A, SID[0], self.A, "Alpha project planning notes ALPHA1", day=1)
+        self.add_session(os.path.join(self.A, "inner"), SID[1], os.path.join(self.A, "inner"), "Alpha inner folder planning notes ALPHA2", day=2)
+        self.add_session(self.B, SID[2], self.B, "Beta project budget words and notes BETA1", day=3)
+        self.add_session(self.C, SID[3], self.C, "Gamma project roadmap words and notes GAMMA1", day=4)
         gone = os.path.join(self.rt, "multi", "gone")
-        self.add_session(gone, SID[4], gone, "Gone project GONE1", day=5)
+        self.add_session(gone, SID[4], gone, "Gone project with missing directory GONE1", day=5)
         nogit = os.path.join(self.rt, "multi", "nogit")
         os.makedirs(nogit)
-        self.add_session(nogit, SID[5], nogit, "No git here NOGIT1", day=6)
+        self.add_session(nogit, SID[5], nogit, "No git here, plain directory notes NOGIT1", day=6)
         return [self.A, self.B, self.C]
 
     def all_rows(self):
