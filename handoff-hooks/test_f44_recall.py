@@ -12,7 +12,9 @@ RECALL = os.path.join(HOOKS_DIR, "recall.py")
 RECALL_LINE = ('- recall: earlier chats in this project are searchable word for word: python3 ~/.claude/hooks/recall.py '
                'search "<words or regex>" (then: recall.py open <id>; recall.py user --last 20). Use it before acting on '
                'anything vague here (exact commands, numbers, paths, names, the user\'s wording) and whenever the user '
-               'refers to something said earlier; quote what you find instead of guessing.')
+               'refers to something said earlier; quote what you find instead of guessing. '
+               'If recall and the decisions list disagree, the decisions list and the user\'s latest words win: recall shows '
+               'history, not current rules.')
 ALLOW_RULE = "Bash(python3 ~/.claude/hooks/recall.py:*)"
 S1, S2, SUB, PRIV, SA = ("a1a1a1a1-0000-4000-8000-000000000001", "b2b2b2b2-0000-4000-8000-000000000002",
                          "c3c3c3c3-0000-4000-8000-000000000003", "d4d4d4d4-0000-4000-8000-000000000004",
@@ -68,7 +70,7 @@ class FakeEmbed:
                     texts = [texts]
                 with outer.lock:
                     outer.requests.append({"path": self.path, "auth": self.headers.get("Authorization"),
-                                           "texts": texts, "model": body.get("model")})
+                                           "texts": texts, "model": body.get("model"), "body": body})
                 if outer.delay:
                     time.sleep(outer.delay)
                 vecs = [embed_text(t) for t in texts]
@@ -425,7 +427,7 @@ class Recall(RecallBase):
         self.assertNotIn("LONGEND", out)
         self.assertLessEqual(out.count("x"), 4000)
         self.assertGreaterEqual(out.count("x"), 3980)
-        m = re.search(r"\[cut: (\d+) more chars\]", out)
+        m = re.search(r"\[cut: (\d+) more chars(?:; continue with: recall\.py open \S+ --full --from \d+)?\]", out)
         self.assertTrue(m, out[-300:])
         self.assertEqual(int(m.group(1)), 6000)
 
@@ -799,10 +801,10 @@ class Hook(_f42.F42):
         d = json.load(open(tpl))
         self.assertIn(ALLOW_RULE, d["permissions"]["allow"])
 
-    def test_ac150_hook_version_1_7_0(self):
+    def test_ac150_hook_version_1_7_1(self):
         self.go()
-        self.assertEqual(self.health()["hook_version"], "1.7.0")
-        self.assertEqual(self.sidecar("S")["hook_version"], "1.7.0")
+        self.assertEqual(self.health()["hook_version"], "1.7.1")
+        self.assertEqual(self.sidecar("S")["hook_version"], "1.7.1")
 
     # ---- AC 158
     def seed_transcript_for_index(self):
