@@ -801,10 +801,10 @@ class Hook(_f42.F42):
         d = json.load(open(tpl))
         self.assertIn(ALLOW_RULE, d["permissions"]["allow"])
 
-    def test_ac150_hook_version_1_7_1(self):
+    def test_ac150_hook_version_1_8_0(self):
         self.go()
-        self.assertEqual(self.health()["hook_version"], "1.7.1")
-        self.assertEqual(self.sidecar("S")["hook_version"], "1.7.1")
+        self.assertEqual(self.health()["hook_version"], "1.8.0")
+        self.assertEqual(self.sidecar("S")["hook_version"], "1.8.0")
 
     # ---- AC 158
     def seed_transcript_for_index(self):
