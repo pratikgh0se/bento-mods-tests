@@ -153,7 +153,7 @@ class Wiring(unittest.TestCase):
     SETTINGS_DIR = os.path.dirname(HOOKS_DIR)
 
     def settings_path(self):
-        for n in ("settings.json", "settings.template.json"):  # SPEC-GAPS: spec says settings.json, repo has the template
+        for n in ("settings.template.json",):
             p = os.path.join(self.SETTINGS_DIR, n)
             if os.path.isfile(p):
                 return p
@@ -172,9 +172,7 @@ class Wiring(unittest.TestCase):
 
     def test_ac171_launchd_plist_valid_with_index_all(self):
         ld = os.path.join(os.path.dirname(self.SETTINGS_DIR), "launchd")
-        p = os.path.join(ld, "com.pratik.recall-index.plist")
-        if not os.path.isfile(p):  # SPEC-GAPS: other agents here ship as .plist.tmpl
-            p = p + ".tmpl"
+        p = os.path.join(ld, "recall-index.plist.tmpl")
         self.assertTrue(os.path.isfile(p), "plist missing in %s" % ld)
         if not shutil.which("plutil"):
             self.skipTest("plutil not available")
