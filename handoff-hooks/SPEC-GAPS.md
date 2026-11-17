@@ -133,3 +133,24 @@
 - AC 186: the `missed` line for `agent a1` (1 missed too) is also expected by the spec numbers (missed 2); only the `agent a2` line is asserted.
 - AC 187: state dir path is not specified, so the output file is found by walking temp HOME for `machine-setup/managed-settings.json`. bootstrap run with PATH `fakebin:/usr/bin:/bin` (fake sudo that records and fails) so an unimplemented flag cannot install anything; the printed `sudo install` line is only asserted to start with `sudo install -m 644` and name the output file (target path under the env override is not asserted). `--check` control: the same setup without the managed file must report `PreCompact`.
 - F46 (e), (f), (g) README text, Manual items: no AC, not tested (plugin nudge has no hook-level test).
+
+## F47 (AC 189-195)
+
+- AC 189: receipt `sid` format (full session id vs first 8 chars) not specified; test accepts either. The "<50 ms" append bound and the `ledger_ids_before/after`, `superseded_*` health fields (F47 a) are not tested (no AC; ledger merge needs a model shim output and a ledger layout the spec does not give).
+- AC 189 failure case: simulated by making `receipts.jsonl` a directory; asserts unchanged output and at least one hooks-error.jsonl line.
+- AC 190: spec offers "edit one chosen message in the recall index copy" but the index schema is not specified; test instead edits the TRANSCRIPT after indexing (index keeps old text), appending to every message so any 5 chosen mismatch. `details` for a lossless fail is only asserted non-empty ("naming it" cannot be asserted; which messages are chosen is seeded internally). Fixture transcript lives in the recall fixture's project (records carry `cwd`) and is indexed with the embedding server down; whether `--prove` locates the project via `cwd` or the transcript folder is unspecified. Messages are user text only. Skip-without-recall uses a copy of the hooks without recall.py.
+- AC 191: handoff format of the "Last user messages" section is taken from a real PreCompact run (the hook writes it); the subagent-handoff fail case copies the parent's handoff to `<sid>-a-a1-latest.md`. Details for a fail must contain the offending line; test asserts only the prefix "Parent only" (details may truncate).
+- AC 192: hook-context attachment record shape taken from a real transcript: `{"type":"attachment","attachment":{"type":"hook_additional_context","content":[text],...}}`. `part1_head` with irregular whitespace vs a single-spaced attachment checks the normalisation.
+- AC 193: how a receipt is matched to "the health row of the same compaction" is not specified; fixture uses a health row with the same `sid` and `ts` equal to the receipt `ts`.
+- AC 194: only the first line of stdout and the first line of proof-report.md are matched exactly; the failed-check line format (sid8, agent id, check name, reason) and skip-count lines are only loosely checked (a line mentioning `delivered`, and some line mentioning `skip`). Rerun output is not asserted. In `--reconcile --prove`, reconcile's first line is expected to start with `compactions `.
+- AC 195: the check line is expected to contain `proof failed: 1 checks` and `proof-report.md`. Plist schedule asserted as `StartCalendarInterval` Hour 4 Minute 15 (a single dict) plus `--days`.
+
+## F48 (AC 196-200)
+
+- Hooks are run from a temp COPY of the hooks dir so a custom `claims.json` can sit next to the script (assumes the register is looked up next to the script). Tests that use the shipped register copy it from the hooks dir.
+- AC 196: `reconcile.json` fields for `reconcile:coverage` are not specified; fixture uses compactions/handoffs/recovered/missed/missed_interactive with 10 and 9 (all interactive). C1 rate asserted as 1.0 and C2 0.9. Proof rows for the register are written directly to proofs.jsonl with `receipt_ts` one hour ago, `ts` now.
+- AC 196: `--claims` is asserted equal (stripped) to `claims-report.md`.
+- AC 197: custom 3-claim register; `as_of` format unspecified, not asserted beyond presence in AC 196.
+- AC 198: lint expected on the status computed by the last `--prove`; fixture runs `--prove` first. Static claims pass check not tested separately.
+- AC 199: "failing or stale" is assumed NOT to count `no-data`; custom 2-claim register used so the count is unambiguous (1, then 2 after a new lossless failure). The reconcile notice of `--check` may also appear in the same line.
+- AC 200: path check is the regex `/[A-Za-z_.~][\w.-]*/` plus absence of `/Users`, HOME, the temp dir, the sid, its first 8 chars, a project name and the message text (values like `9/10` legitimately contain `/`).

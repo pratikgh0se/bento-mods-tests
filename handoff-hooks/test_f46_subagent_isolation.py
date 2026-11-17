@@ -244,7 +244,7 @@ class ManagedHooks(F46Base):
         env = {"HOME": self.home, "PATH": self.fakebin + ":/usr/bin:/bin", "LANG": "C.UTF-8",
                "HANDOFF_MANAGED_SETTINGS_PATH": self.sys_path}
         r = subprocess.run(["bash", os.path.join(REPO_DIR, "setup", "bootstrap.sh"), "--managed-hooks"],
-                           cwd=REPO_DIR, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
+                           cwd=REPO_DIR, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(self.sudo_log), "bootstrap must never run sudo")
         found = []
