@@ -188,7 +188,7 @@ class Reconcile(F45Base):
                 f.write(json.dumps(r) + "\n")
 
     def test_ac177_reconcile_counts_and_report(self):
-        A, B, C, D, E, F, G = ("%s0000000-0000-4000-8000-00000000000%d" % (c, i) for i, c in enumerate("abcdefg", 1))
+        A, B, C, D, E, F, G, H, I = ("%s0000000-0000-4000-8000-00000000000%d" % (c, i) for i, c in enumerate("abcdefghi", 1))
         day = 86400
         self.sess("-proj-alpha", A, [-2 * day, -day])
         self.sess("-proj-bravo", B, [-3 * day])
@@ -196,13 +196,16 @@ class Reconcile(F45Base):
         self.sess("-proj-delta", D, [-10 * day])
         self.sess("-proj-echo", E, [-2 * day])
         self.sess("-proj-foxtrot", F, [-day])
-        self.sess("-proj-golf", G, [-day, -day + 5, -day + 10], subagent=True)
+        self.sess("-proj-golf", H, [-day, -day + 5, -day + 10], subagent=True)
+        # canary sessions (excluded): by folder name, and by a canary_child row naming the sid
+        self.sess("-private-var-folders-xx-T-handoff-canary-A-x1-proj", G, [-day], entrypoint="sdk-cli")
+        self.sess("-proj-india", I, [-day])
         os.makedirs(self.hd)
         for _ in range(2):
             self.add_health_row(A)
         self.add_health_row(E, trigger="recovered", status="recovered")
-        for _ in range(2):  # canary_child rows must not count (sid chosen so they would hide B's miss)
-            self.add_health_row(B, canary_child=True)
+        for _ in range(2):  # canary_child rows exclude session I (it would otherwise be a missed interactive one)
+            self.add_health_row(I, canary_child=True)
         pend = os.path.join(self.hd, F + "-pending.json")
         json.dump({"ts": iso(-300), "trigger": "auto", "hook_version": "1.9.0"}, open(pend, "w"))
         os.utime(pend, (time.time() - 300, time.time() - 300))
@@ -217,7 +220,8 @@ class Reconcile(F45Base):
         joined = "\n".join(missed)
         self.assertIn(B[:8], joined)
         self.assertIn(F[:8], joined)
-        self.assertNotIn(C[:8], r.stdout.split("\n", 1)[1])
+        for x in (C, G, I):
+            self.assertNotIn(x[:8], r.stdout.split("\n", 1)[1])
         self.assertIn("bravo", joined)
         j = self.read_json(os.path.join(self.hd, "reconcile.json"))
         want = {"days": 7, "compactions": 6, "handoffs": 2, "recovered": 1, "missed": 3, "missed_interactive": 2,

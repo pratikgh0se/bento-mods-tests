@@ -119,3 +119,4 @@
 - AC 179: plist template parsed with plistlib (`__HOME__` placeholders are plain strings).
 - AC 180: asserted via health/sidecar and a regex on the `HOOK_VERSION = "1.9.0"` literal in both hook files.
 - F45(e) README statement and the bootstrap.sh output line have no AC; not tested.
+- AC 177 (canary update): fixture adds G (sdk-cli, folder `-private-var-folders-xx-T-handoff-canary-A-x1-proj`) and an extra interactive session I excluded only through `canary_child` rows naming its sid8 (spec says rows are ignored AND the sid is excluded; I is the test for the latter). Subagent transcript renamed H.
