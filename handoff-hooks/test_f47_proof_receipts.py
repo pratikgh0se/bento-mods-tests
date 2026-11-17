@@ -168,10 +168,36 @@ class Lossless(RecallBase, ProofBase):
         v = self.verdict(rc)
         self.assertEqual(v["checks"]["lossless"], "pass", v)
 
-    def test_ac190_lossless_fails_when_text_differs(self):
-        self.write_t([m + " EDITED-AFTER-INDEX" for m in self.msgs])  # index keeps the old text
+    FAKE_RECALL = """#!/usr/bin/env python3
+import json, re, sys
+T = %r
+SID8 = %r
+args = sys.argv[1:]
+rows = [json.loads(l) for l in open(T) if l.strip()]
+def text(r):
+    c = r.get("message", {}).get("content")
+    return c if isinstance(c, str) else ""
+if args and args[0] == "search":
+    phrase = args[1]
+    hits = [(i + 1, r) for i, r in enumerate(rows) if phrase in text(r)]
+    for i, r in hits:
+        print("%%s:%%d 2026-03-08 12:00 %%s: %%s" %% (SID8, i, r.get("type", "user"), text(r)[:150]))
+    print("%%d hits shown of %%d (1 sessions searched)" %% (len(hits), len(hits)))
+elif args and args[0] == "open":
+    line = int(args[1].split(":")[1])
+    r = rows[line - 1]
+    print("--- %%s:%%d 2026-03-08 12:00 %%s" %% (SID8, line, r.get("type", "user")))
+    print(text(r) + " ALTERED-BY-FAKE-RECALL")
+"""
+
+    def test_ac190_lossless_fails_when_recall_returns_different_text(self):
+        """Spec route: recall returning different text. A fake recall.py sits in a temp COPY of the hooks dir."""
+        hooks = os.path.join(self.tmp, "hooks-fake")
+        shutil.copytree(HOOKS_DIR, hooks, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        with open(os.path.join(hooks, "recall.py"), "w") as f:
+            f.write(self.FAKE_RECALL % (self.tpath2, self.SESS[:8]))
         rc = self.receipt(self.tpath2, sid=self.SESS)
-        self.prove(env=self.penv())
+        self.prove(env=self.penv(), pre=os.path.join(hooks, "precompact-handoff.py"))
         v = self.verdict(rc)
         self.assertEqual(v["checks"]["lossless"], "fail", v)
         self.assertTrue(v["details"].get("lossless"), v)

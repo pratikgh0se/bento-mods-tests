@@ -12,6 +12,9 @@ PARENT_MSG = "Parent session last request: tidy the changelog PARENT-MARK"
 SUB_OLD = "Subagent first instruction: survey the parser module SUBOLD-MARK"
 SUB_MSG = "Subagent last request: list every TODO in the parser SUBLAST-MARK"
 SUB_POST = "Subagent later message after its compaction SUBPOST-MARK"
+# shared append-only/report files that every inject or prove run may touch (F46 health/errors, F47 receipts/proofs, F48 claims)
+SHARED_FILES = ("health.jsonl", "hooks-error.jsonl", "receipts.jsonl", "proofs.jsonl", "proof-report.md", "proof-notice.json",
+                "reconcile.json")
 HANDOFF_EVENTS = ("PreCompact", "SessionStart", "SessionEnd")
 
 
@@ -47,7 +50,7 @@ class F46Base(F45Base):
         for root, dirs, files in os.walk(self.hd):
             dirs[:] = [x for x in dirs if x != "recall"]  # the detached indexer writes there
             for n in files:
-                if "-a-" in n or n in ("health.jsonl", "hooks-error.jsonl"):
+                if "-a-" in n or n in SHARED_FILES or n.startswith("claims-"):
                     continue
                 p = os.path.join(root, n)
                 with open(p, "rb") as f:

@@ -547,6 +547,8 @@ class Subagent(F42):
         return out
 
     def check_subagent(self, payload, trigger):
+        """AC 133 as amended by F46(b): a subagent compaction (agent_id set) may write its own `<sid>-a-<agent_id>`
+        twin files, but no MAIN-session file is written or changed, and the ledger is not merged or touched."""
         d, text = self.seed(SEED3)
         state = open(os.path.join(d, "decisions.state.json"), "rb").read()
         before = self.snapshot()
@@ -554,15 +556,18 @@ class Subagent(F42):
         self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
         after = self.snapshot()
         changed = {k for k in after if after[k] != before.get(k)} | (set(before) - set(after))
-        self.assertEqual(changed, {"health.jsonl"}, changed)
+        twin = "S-a-" + payload["agent_id"]
+        stray = {k for k in changed if k != "health.jsonl" and not os.path.basename(k).startswith(twin)}
+        self.assertEqual(stray, set(), "main-session files changed: %s" % stray)
+        self.assertIn("health.jsonl", changed)
         self.assertTrue(after["health.jsonl"].startswith(before.get("health.jsonl", b"")))
         new = after["health.jsonl"][len(before.get("health.jsonl", b"")):].decode().strip().split("\n")
         self.assertEqual(len(new), 1, new)
         h = json.loads(new[0])
-        self.assertEqual((h["trigger"], h["status"], h["ledger"]), (trigger, "subagent", "skipped"))
+        self.assertEqual(h["trigger"], trigger)
+        self.assertEqual(h["agent_id"], payload["agent_id"])
         self.assertEqual(self.ledger_text(), text)
         self.assertEqual(open(os.path.join(d, "decisions.state.json"), "rb").read(), state)
-        self.assertFalse(self.shim_invoked())
         self.assertEqual(self.merge_calls(), 0)
 
     def test_ac133_agent_id_set(self):
@@ -582,6 +587,7 @@ class Subagent(F42):
         shutil.copy(self.tpath, tp)
         p = self.payload("S", cwd=self.cwd)
         p["transcript_path"] = tp
+        p["agent_id"] = "agent-1"
         self.check_subagent(p, "auto")
 
     def test_ac133_empty_or_null_agent_id_is_a_normal_run(self):
