@@ -27,7 +27,7 @@ The process is described in `docs/code-blind-tdd.md` in the machine-setup reposi
 
 The handoff hooks tests moved to https://github.com/pratikgh0se/lossless-handoff-tests.
 
-Counts are as of 2026-10-18, 2,089 tests in total.
+Counts are as of 2026-10-18, without the 208 handoff hooks tests that moved on 2026-11-17: 1,881 tests in total.
 
 ![Bar chart of test counts per suite, sorted descending, as of 2026-10-18](docs/img/suites.svg)
 

@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" width="900" height="420" role="img" aria-label="Test count per suite, as of 2026-10-18"><style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 384" width="900" height="384" role="img" aria-label="Test count per suite, as of 2026-10-18"><style>
 :root{--bg:#ffffff;--fg:#1f2328;--mut:#59636e;--line:#d1d9e0;--a:#0969da;--abg:#ddf4ff;--b:#1a7f37;--bbg:#dafbe1;--w:#cf222e;--wbg:#ffebe9;--c:#8250df;--cbg:#fbefff}
 @media (prefers-color-scheme: dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#9198a1;--line:#3d444d;--a:#58a6ff;--abg:#121d2f;--b:#3fb950;--bbg:#12261e;--w:#ff7b72;--wbg:#2d1214;--c:#bc8cff;--cbg:#271a3d}}
 text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:var(--fg);font-size:14px}
 .m{fill:var(--mut);font-size:12px}.t{font-weight:600}.h{font-size:18px;font-weight:600}.mid{text-anchor:middle}.end{text-anchor:end}
 </style>
-<rect width="900" height="420" fill="var(--bg)"/>
-<text x="30" y="36" class="h">Contract tests per suite</text><text x="30" y="56" class="m">Counts as of 2026-10-18. 2,089 tests in total.</text>
+<rect width="900" height="384" fill="var(--bg)"/>
+<text x="30" y="36" class="h">Contract tests per suite</text><text x="30" y="56" class="m">Counts as of 2026-10-18, without the handoff hooks tests (moved 2026-11-17). 1,881 tests in total.</text>
 <text x="138" y="99" class="end">agents</text><rect x="150" y="80" width="529" height="26" rx="3" fill="var(--a)"/><text x="687" y="99" class="t">378</text>
 <text x="138" y="135" class="end">compact</text><rect x="150" y="116" width="487" height="26" rx="3" fill="var(--a)"/><text x="645" y="135" class="t">348</text>
 <text x="138" y="171" class="end">token-budget</text><rect x="150" y="152" width="449" height="26" rx="3" fill="var(--a)"/><text x="607" y="171" class="t">321</text>
