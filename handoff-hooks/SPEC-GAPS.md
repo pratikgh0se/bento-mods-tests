@@ -106,3 +106,16 @@
 - F44.13 AC 171: spec names `claude/settings.json` but the repo file is `claude/settings.template.json` (uses `__HOME__`), and launchd agents elsewhere are `*.plist.tmpl`. Tests accept settings.json or settings.template.json, and `.plist` or `.plist.tmpl` (a tmpl with placeholders may fail `plutil -lint`; pin the name in the spec).
 - F44.13 AC 169: how a project lock is "held" is unspecified. Test holds it black-box by running a slow `index --cwd <B>` against a delayed fake server while `index --all` runs against a fast one. Spec also does not say whether a busy project counts in "indexed k of n" (test assumes not: `indexed 2 of 3 projects`).
 - F44.13 AC 167: "newest activity first" order and the per-project `--max-seconds` / time-cap line are not tested. The "3 projects" count assumes no other transcripts in the temp HOME (fixture transcripts removed).
+
+## F45 (AC 172-180)
+
+- AC 172: pending file `ts` format is not specified; only key presence, `trigger` == `auto` and `hook_version` == `1.9.0` are asserted. Early handoff is taken to be the normal `<sid>-latest.md`.
+- AC 174: "the old handoff file still exists" is ambiguous (the latest file is overwritten by recovery; spec says the older handoff stays as an archive but not where). Test asserts the old body text survives in some file under HANDOFFS_DIR.
+- AC 174/175: whether "last health row" means the F36 sidecar `<sid>-last-health.json` or `health.jsonl`; fixtures write both with the same age.
+- AC 173: `compact_boundary` record shape assumed from F38.2 (`{"type":"system","subtype":"compact_boundary"}`); recovered row asserted on `trigger` and `status` only.
+- AC 176: "one line in hooks-error.jsonl" asserted as exactly one line in a fresh HOME.
+- AC 177: format of a canary row is unspecified; fixture uses `canary_child: true` health rows only. Boundary `timestamp` and pending `ts` assumed `%Y-%m-%dT%H:%M:%SZ`; killed fixture sets pending `ts` and mtime to 300 s ago. `missed` line beyond `missed <count> <sid8> <folder> <ts>` is checked loosely (sid8 and project folder substring).
+- AC 178: manifest file list unspecified; fixture lists the two hooks and recall.py. Version mismatch produced by regex-editing the copied hook's `HOOK_VERSION` literal. Missing hook file case not tested (which files are required is unspecified). `--check` run from a copy of the hooks in `<HOME>/.claude/hooks`.
+- AC 179: plist template parsed with plistlib (`__HOME__` placeholders are plain strings).
+- AC 180: asserted via health/sidecar and a regex on the `HOOK_VERSION = "1.9.0"` literal in both hook files.
+- F45(e) README statement and the bootstrap.sh output line have no AC; not tested.
