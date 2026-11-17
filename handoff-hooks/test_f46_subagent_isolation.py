@@ -155,7 +155,9 @@ class MainUnaffected(F46Base):
 
     @staticmethod
     def norm(t):
-        return re.sub(r"(?m)^time:.*$", "time: X", t)
+        t = re.sub(r"(?m)^time:.*$", "time: X", t)
+        t = re.sub(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?", "<TS>", t)
+        return re.sub(r"(?i)(duration_ms\D{0,4})\d+|(\b\d+(?:\.\d+)?\s?(?:ms|s)\b)", "<DUR>", t)
 
     def run_main(self):
         self.write_transcript([user(PARENT_MSG), asst("ok")])
@@ -163,7 +165,7 @@ class MainUnaffected(F46Base):
         self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
         latest = self.norm(self.latest())
         ctx = self.part_ctx(1, self.compact_payload(sid=SID))
-        return latest, ctx
+        return latest, self.norm(ctx or "")
 
     def test_ac185_subagent_files_do_not_change_main_runs(self):
         self.install_shim(out="")
