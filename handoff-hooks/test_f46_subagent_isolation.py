@@ -87,7 +87,6 @@ class SubagentPreCompact(F46Base):
         row = self.health()
         self.assertEqual(row.get("agent_id"), AID)
         self.assertEqual(row.get("agent_type"), "general-purpose")
-        self.assertEqual(row.get("sid"), SID)
         self.assertFalse(os.path.exists(os.path.join(self.hd, KEY + "-pending.json")))
 
     def test_ac182_missing_subagent_transcript_is_degraded(self):

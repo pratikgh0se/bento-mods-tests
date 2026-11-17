@@ -133,3 +133,4 @@
 - AC 186: the `missed` line for `agent a1` (1 missed too) is also expected by the spec numbers (missed 2); only the `agent a2` line is asserted.
 - AC 187: state dir path is not specified, so the output file is found by walking temp HOME for `machine-setup/managed-settings.json`. bootstrap run with PATH `fakebin:/usr/bin:/bin` (fake sudo that records and fails) so an unimplemented flag cannot install anything; the printed `sudo install` line is only asserted to start with `sudo install -m 644` and name the output file (target path under the env override is not asserted). `--check` control: the same setup without the managed file must report `PreCompact`.
 - F46 (e), (f), (g) README text, Manual items: no AC, not tested (plugin nudge has no hook-level test).
+- AC 181: health row `sid` for a subagent event is ambiguous (parent sid vs key `<sid>-a-<agent_id>`); test no longer asserts it, only `agent_id` and `agent_type`.
