@@ -288,6 +288,69 @@ class Delivered(ProofBase):
         self.assertEqual(self.run_case([]), "skip")
 
 
+# ---------------------------------------------------------------- AC 201
+class ResolvedBoundary(ProofBase):
+    HEAD = "BOUNDARY-HEAD-TEXT unique words"
+
+    @staticmethod
+    def at(rc, delta):
+        import calendar
+        t = calendar.timegm(time.strptime(rc["ts"], "%Y-%m-%dT%H:%M:%SZ")) + delta
+        return time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(t))
+
+    def case(self, recorded, b1_delta, head_where):
+        """Receipt (recorded boundary_ts: None or 'B0'), transcript with B0 (old) and B1 at receipt ts + b1_delta.
+        head_where: 'after_b1' puts the head in an attachment after B1 (and an unrelated one between B0 and B1);
+        'between' puts the head only between B0 and B1 and an unrelated attachment after B1."""
+        rc = self.receipt(self.tpath, key="S", sid="S", head=self.HEAD)
+        b0, b1 = self.at(rc, -3600), self.at(rc, b1_delta)
+        head_att = self.attach(self.HEAD, self.at(rc, b1_delta - 3000 if head_where == "between" else b1_delta + 0))
+        other = self.attach("unrelated hook context", self.at(rc, b1_delta + 0))
+        mid_att = self.attach("unrelated hook context", self.at(rc, -3000))
+        if head_where == "after_b1":
+            recs = [user("An early user message that is long enough here"), dict(BOUNDARY, timestamp=b0), mid_att,
+                    dict(BOUNDARY, timestamp=b1), head_att]
+        else:
+            recs = [user("An early user message that is long enough here"), dict(BOUNDARY, timestamp=b0),
+                    self.attach(self.HEAD, self.at(rc, -3000)), dict(BOUNDARY, timestamp=b1), other]
+        self.write_jsonl(self.tpath, recs)
+        # rewrite the receipt line with the recorded boundary hint
+        rp = os.path.join(self.hd, "receipts.jsonl")
+        rows = jl(rp)
+        rows[-1]["boundary_ts"] = b0 if recorded == "B0" else None
+        open(rp, "w").write("".join(json.dumps(r) + "\n" for r in rows))
+        self.prove()
+        v = self.verdict(rc)
+        self.assertEqual(v.get("boundary_ts"), b1, v)
+        return v["checks"]["delivered"]
+
+    def test_ac201_null_hint_resolves_to_boundary_one_second_before(self):
+        self.assertEqual(self.case(None, -1, "after_b1"), "pass")
+
+    def test_ac201_null_hint_measures_after_b1_not_b0(self):
+        self.assertEqual(self.case(None, -1, "between"), "fail")
+
+    def test_ac201_recorded_b0_but_b1_two_seconds_after_receipt(self):
+        self.assertEqual(self.case("B0", 2, "after_b1"), "pass")
+
+    def test_ac201_recorded_b0_with_b1_after_receipt_measures_after_b1(self):
+        self.assertEqual(self.case("B0", 2, "between"), "fail")
+
+    def test_ac201_no_boundary_within_ten_seconds_skips(self):
+        rc = self.receipt(self.tpath, key="S", sid="S", head=self.HEAD)
+        late = self.at(rc, 30)
+        self.write_jsonl(self.tpath, [user("An early user message that is long enough here"),
+                                      dict(BOUNDARY, timestamp=late), self.attach(self.HEAD, self.at(rc, 31))])
+        rp = os.path.join(self.hd, "receipts.jsonl")
+        rows = jl(rp)
+        rows[-1]["boundary_ts"] = None
+        open(rp, "w").write("".join(json.dumps(r) + "\n" for r in rows))
+        self.prove()
+        v = self.verdict(rc)
+        self.assertEqual(v["checks"]["delivered"], "skip", v)
+        self.assertIn("no boundary", json.dumps(v["details"]))
+
+
 # ---------------------------------------------------------------- AC 193
 class DecisionsSafe(ProofBase):
     def case(self, **ledger):
