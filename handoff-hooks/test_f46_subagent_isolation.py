@@ -87,6 +87,8 @@ class SubagentPreCompact(F46Base):
         row = self.health()
         self.assertEqual(row.get("agent_id"), AID)
         self.assertEqual(row.get("agent_type"), "general-purpose")
+        self.assertEqual(row.get("sid"), SID[:8])
+        self.assertEqual(row.get("sid"), self.health_rows()[0].get("sid"), "same sid format as the main row")
         self.assertFalse(os.path.exists(os.path.join(self.hd, KEY + "-pending.json")))
 
     def test_ac182_missing_subagent_transcript_is_degraded(self):
@@ -141,6 +143,7 @@ class SubagentInject(F46Base):
         rows = [r for r in self.health_rows() if r.get("trigger") == "recovered"]
         self.assertEqual(len(rows), 1, rows)
         self.assertEqual(rows[0].get("agent_id"), AID)
+        self.assertEqual(rows[0].get("sid"), SID[:8])
         self.assertEqual(self.parent_snapshot(), before, "parent handoff files and sidecar must be untouched")
         self.assertTrue(os.path.exists(os.path.join(self.hd, KEY + "-latest.md")), os.listdir(self.hd))
         self.assertFalse(self.shim_invoked())
