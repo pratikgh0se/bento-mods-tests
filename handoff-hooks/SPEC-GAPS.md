@@ -120,3 +120,16 @@
 - AC 180: asserted via health/sidecar and a regex on the `HOOK_VERSION = "1.9.0"` literal in both hook files.
 - F45(e) README statement and the bootstrap.sh output line have no AC; not tested.
 - AC 177 (canary update): fixture adds G (sdk-cli, folder `-private-var-folders-xx-T-handoff-canary-A-x1-proj`) and an extra interactive session I excluded only through `canary_child` rows naming its sid8 (spec says rows are ignored AND the sid is excluded; I is the test for the latter). Subagent transcript renamed H.
+
+## F46 (AC 181-188)
+
+- AC 177 (F46 d): subagent fixture now `<project>/<sid>/subagents/agent-x9.jsonl` with `isSidechain`/`agentId`; the test ignores `missed ... agent ...` lines when counting main missed lines (they now appear after the `subagent compactions` line).
+- AC 181: the ledger file location is not specified, so "ledger file unchanged" is tested as (a) no ledger merge call to the shim and (b) every non-twin file under HANDOFFS_DIR (except `recall/`, health.jsonl, hooks-error.jsonl) byte-identical. The main run's detached indexer writes under `recall/`, so that dir is excluded. "Does not start the indexer" is not tested.
+- AC 181: the subagent handoff is asserted via `<sid>-a-<agent_id>-latest.md` (file suffixes assumed to mirror the main names); health row asserts `agent_id`, `agent_type`, `sid`. Pending file is asserted removed.
+- AC 182: spec says "reason `agent_transcript_missing`"; test only asserts the code appears anywhere in the health row JSON.
+- AC 183: ledger parts equality is vacuous when no ledger exists (no known way to seed a ledger black-box); weak check.
+- AC 184: recovered row asserted via `trigger == recovered` with `agent_id`; "parent last-health sidecar byte-identical" covered by the snapshot of all non-twin files.
+- AC 185: compares `time:` line-normalised `latest.md` and part-1 output with and without a `S-a-a1` twin; ledger disabled via env for this test.
+- AC 186: the `missed` line for `agent a1` (1 missed too) is also expected by the spec numbers (missed 2); only the `agent a2` line is asserted.
+- AC 187: state dir path is not specified, so the output file is found by walking temp HOME for `machine-setup/managed-settings.json`. bootstrap run with PATH `fakebin:/usr/bin:/bin` (fake sudo that records and fails) so an unimplemented flag cannot install anything; the printed `sudo install` line is only asserted to start with `sudo install -m 644` and name the output file (target path under the env override is not asserted). `--check` control: the same setup without the managed file must report `PreCompact`.
+- F46 (e), (f), (g) README text, Manual items: no AC, not tested (plugin nudge has no hook-level test).

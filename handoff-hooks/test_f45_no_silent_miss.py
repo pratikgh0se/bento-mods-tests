@@ -1,4 +1,4 @@
-"""F45 (hooks 1.9.0) ACs 172-180 of specs/handoff-hooks-spec.md (code-blind: written from the spec only).
+"""F45 (hooks 1.10.0) ACs 172-180 of specs/handoff-hooks-spec.md (code-blind: written from the spec only).
 Write early (pending file), recover at SessionStart compact, reconcile, install check. Temp HOME, shim `claude`."""
 import hashlib, json, os, plistlib, re, shutil, signal, subprocess, sys, time, unittest
 
@@ -101,7 +101,7 @@ class WriteEarly(F45Base):
         for k in ("ts", "trigger", "hook_version"):
             self.assertIn(k, d)
         self.assertEqual(d["trigger"], "auto")
-        self.assertEqual(d["hook_version"], "1.9.0")
+        self.assertEqual(d["hook_version"], "1.10.0")
         self.assertIn("PREBOUNDARY-MARK", self.latest())
         found = [pth for pth, txt in self.all_hd_text() if "PREBOUNDARY-MARK" in txt and pth.endswith(".md")]
         self.assertGreaterEqual(len(found), 1)
@@ -177,13 +177,15 @@ class Reconcile(F45Base):
     def sess(self, folder, sid, boundaries, entrypoint="cli", subagent=False):
         d = os.path.join(self.home, ".claude", "projects", folder)
         if subagent:
-            d = os.path.join(d, "parent-session", "subagents")
+            d = os.path.join(d, sid, "subagents")
         os.makedirs(d, exist_ok=True)
         recs = [dict(user("A user message long enough to be real text here"), entrypoint=entrypoint,
                      timestamp=iso(-86400 * 20), sessionId=sid)]
         for off in boundaries:
             recs.append(dict(BOUNDARY, timestamp=iso(off), sessionId=sid))
-        with open(os.path.join(d, sid + ".jsonl"), "w") as f:
+        if subagent:
+            recs = [dict(r, isSidechain=True, agentId="x9") for r in recs]
+        with open(os.path.join(d, ("agent-x9" if subagent else sid) + ".jsonl"), "w") as f:
             for r in recs:
                 f.write(json.dumps(r) + "\n")
 
@@ -207,7 +209,7 @@ class Reconcile(F45Base):
         for _ in range(2):  # canary_child rows exclude session I (it would otherwise be a missed interactive one)
             self.add_health_row(I, canary_child=True)
         pend = os.path.join(self.hd, F + "-pending.json")
-        json.dump({"ts": iso(-300), "trigger": "auto", "hook_version": "1.9.0"}, open(pend, "w"))
+        json.dump({"ts": iso(-300), "trigger": "auto", "hook_version": "1.10.0"}, open(pend, "w"))
         os.utime(pend, (time.time() - 300, time.time() - 300))
         r = subprocess.run([sys.executable, PRE, "--reconcile", "--days", "7"], stdin=subprocess.DEVNULL,
                            capture_output=True, text=True, env=self.env(None), timeout=60)
@@ -215,7 +217,7 @@ class Reconcile(F45Base):
         lines = r.stdout.rstrip("\n").split("\n")
         self.assertEqual(lines[0], "compactions 6 · handoffs 2 · recovered 1 · missed 3 "
                                    "(interactive 2, headless 1) · killed 1", r.stdout)
-        missed = [l for l in lines[1:] if l.startswith("missed ")]
+        missed = [l for l in lines[1:] if l.startswith("missed ") and " agent " not in l]  # F46(d): subagent lines are separate
         self.assertEqual(len(missed), 2, r.stdout)
         joined = "\n".join(missed)
         self.assertIn(B[:8], joined)
@@ -274,7 +276,7 @@ class Check(F45Base):
             if os.path.exists(p):
                 files[n] = hashlib.sha256(open(p, "rb").read()).hexdigest()
         files.update(override or {})
-        json.dump({"version": "1.9.0", "installed_at": iso(), "files": files},
+        json.dump({"version": "1.10.0", "installed_at": iso(), "files": files},
                   open(os.path.join(self.hooks_home, ".handoff-manifest.json"), "w"))
 
     def check(self):
@@ -359,16 +361,16 @@ class Wiring(unittest.TestCase):
         for path in (PRE, POST):
             with self.subTest(os.path.basename(path)):
                 src = open(path).read()
-                self.assertRegex(src, r"""HOOK_VERSION\s*=\s*["']1\.9\.0["']""")
+                self.assertRegex(src, r"""HOOK_VERSION\s*=\s*["']1\.10\.0["']""")
 
 
 class VersionInHealth(F45Base):
-    def test_ac180_health_and_sidecar_report_1_9_0(self):
+    def test_ac180_health_and_sidecar_report_1_10_0(self):
         self.write_transcript([user(PRE_MSG), asst("ok")])
         r = self.run_pre(self.payload())
         self.assertEqual(r.returncode, 0)
-        self.assertEqual(self.health()["hook_version"], "1.9.0")
-        self.assertEqual(self.sidecar("S")["hook_version"], "1.9.0")
+        self.assertEqual(self.health()["hook_version"], "1.10.0")
+        self.assertEqual(self.sidecar("S")["hook_version"], "1.10.0")
 
 
 if __name__ == "__main__":
